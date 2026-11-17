@@ -12,6 +12,7 @@ com.coldfriend.world        pure Java, no engine types
     TerrainCarver           ground with channels cut in (package-private)
     GeneratedWorld          terrain + bodies + queries; the public face
     WaterSample             reusable query result
+    BushSpawn, BushPlacer   where bushes stand (own random stream)
     WaterDetector,          per-entity contact tracking
     WaterContact
 
@@ -19,13 +20,16 @@ com.coldfriend.environment  engine rendering of that data
     TerrainMeshBuilder      flat-shaded terrain mesh
     WaterMeshBuilder        ribbon / disc meshes per body (package-private)
     WaterView               node + one shared material + dispose()
-    WaterLighting           light values handed to the shader
+    FoliageView             batched swaying bushes: node + one shared material + dispose()
+    BushMeshBuilder         bush shape and per-vertex sway data (package-private)
+    Wind                    wind values for the foliage shader
+    SceneLighting           light values handed to the shaders (water, foliage)
     MeshCleanup             frees direct buffers
 
 com.coldfriend.dev          developer tools, not the game
     WorldPreviewApp         fly camera and screenshots of a generated world
 
-src/main/resources          MatDefs/Water.j3md, Shaders/Water.vert, Shaders/Water.frag
+src/main/resources          MatDefs/Water.j3md + Shaders/Water.*, MatDefs/Foliage.j3md + Shaders/Foliage.*
 ```
 
 ## Dependency direction
@@ -63,11 +67,13 @@ There is deliberately no `WaterManager`. `GeneratedWorld` owns data and queries;
 
 **Shader animates from engine time.** No per-frame Java work and no uniform updates, so there is nothing to allocate or schedule. Simulation state (water level, ice) is separate and static.
 
-**Lighting passed in, not read.** The shader cannot see jME lights, so the scene owner gives `WaterView` a `WaterLighting`. This keeps the water correct at night and in interiors without the shader depending on scene setup.
+**Lighting passed in, not read.** The shader cannot see jME lights, so the scene owner gives `WaterView` and `FoliageView` a `SceneLighting`. This keeps the water correct at night and in interiors without the shader depending on scene setup.
+
+See [FOLIAGE_WIND.md](FOLIAGE_WIND.md) for how bushes and wind work.
 
 ## Resource lifecycle
 
-- `WaterView.dispose()` detaches the node and destroys its meshes' direct buffers. Call it when the world is destroyed.
+- `WaterView.dispose()` and `FoliageView.dispose()` detach their nodes and destroys its meshes' direct buffers. Call it when the world is destroyed.
 - Terrain geometry from `TerrainMeshBuilder.build` is the caller's to release with `MeshCleanup.release(geometry.getMesh())`.
 - `WorldPreviewApp.destroy()` shows both calls.
 - Engine `Material` objects hold no GPU resources of their own.

@@ -1,9 +1,13 @@
 package com.coldfriend.dev;
 
+import com.coldfriend.environment.FoliageView;
 import com.coldfriend.environment.MeshCleanup;
+import com.coldfriend.environment.SceneLighting;
 import com.coldfriend.environment.TerrainMeshBuilder;
-import com.coldfriend.environment.WaterLighting;
 import com.coldfriend.environment.WaterView;
+import com.coldfriend.environment.Wind;
+import com.coldfriend.world.BushPlacer;
+import com.coldfriend.world.BushSpawn;
 import com.coldfriend.world.GeneratedWorld;
 import com.coldfriend.world.WaterBody;
 import com.coldfriend.world.WaterType;
@@ -17,6 +21,7 @@ import com.jme3.post.FilterPostProcessor;
 import com.jme3.post.filters.FogFilter;
 import com.jme3.scene.Geometry;
 import com.jme3.system.AppSettings;
+import java.util.List;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,16 +30,20 @@ import org.slf4j.LoggerFactory;
  * Developer tool: flies a camera around one generated world so terrain and water can be inspected.
  *
  * <p>Arguments: {@code --seed N} (default 1), {@code --view overview|river|stream|lake|ice|open} (default
- * overview), {@code --night}, {@code --cam x,y,z --look x,y,z} (explicit camera), {@code --shot PATH} (save a screenshot, then exit; PATH is a directory and
- * file name without extension, e.g. {@code build/shots/seed1}). Fly with WASD and the mouse.
+ * overview; {@code bush} looks at the first bush), {@code --night}, {@code --wind calm|breezy|storm} (default
+ * breezy), {@code --cam x,y,z --look x,y,z} (explicit camera), {@code --shot PATH} (save a screenshot, then exit;
+ * PATH is a directory and file name without extension, e.g. {@code build/shots/seed1}) and {@code --shot-frame N}
+ * (which frame to capture, default 45; compare two runs to see motion). Fly with WASD and the mouse.
  */
 public final class WorldPreviewApp extends SimpleApplication {
 
     private static final Logger LOG = LoggerFactory.getLogger(WorldPreviewApp.class);
     private static final int WIDTH = 1280;
     private static final int HEIGHT = 720;
-    private static final int SHOT_FRAME = 45;
-    private static final int EXIT_FRAME = 60;
+    private static final int DEFAULT_SHOT_FRAME = 45;
+    private static final int FRAMES_AFTER_SHOT = 15;
+    private static final float BUSH_CAMERA_BACK = 4.5f;
+    private static final float BUSH_CAMERA_UP = 1.6f;
     private static final float MOVE_SPEED = 25f;
     /** Lit terrain is vertex-coloured, so scene lights are scaled down to avoid blowing out snow. */
     private static final float SCENE_LIGHT_SCALE = 0.55f;
@@ -53,10 +62,14 @@ public final class WorldPreviewApp extends SimpleApplication {
     private final String view;
     private final boolean night;
     private final String shotPath;
+    private Wind wind = Wind.breezy();
+    private int shotFrame = DEFAULT_SHOT_FRAME;
+    private List<BushSpawn> bushes = List.of();
     private Vector3f camPosition;
     private Vector3f camTarget;
     private GeneratedWorld world;
     private WaterView water;
+    private FoliageView foliage;
     private Geometry terrain;
     private int frame;
 
@@ -80,6 +93,8 @@ public final class WorldPreviewApp extends SimpleApplication {
         String shot = null;
         Vector3f camPosition = null;
         Vector3f camTarget = null;
+        Wind wind = Wind.breezy();
+        int shotFrame = DEFAULT_SHOT_FRAME;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--seed" -> seed = Long.parseLong(args[++i]);
@@ -88,12 +103,16 @@ public final class WorldPreviewApp extends SimpleApplication {
                 case "--shot" -> shot = args[++i];
                 case "--cam" -> camPosition = parseVector(args[++i]);
                 case "--look" -> camTarget = parseVector(args[++i]);
+                case "--wind" -> wind = parseWind(args[++i]);
+                case "--shot-frame" -> shotFrame = Integer.parseInt(args[++i]);
                 default -> throw new IllegalArgumentException("unknown argument: " + args[i]);
             }
         }
         WorldPreviewApp app = new WorldPreviewApp(seed, view, night, shot);
         app.camPosition = camPosition;
         app.camTarget = camTarget;
+        app.wind = wind;
+        app.shotFrame = shotFrame;
         AppSettings settings = new AppSettings(true);
         settings.setResolution(WIDTH, HEIGHT);
         settings.setTitle("Water preview");
@@ -103,6 +122,15 @@ public final class WorldPreviewApp extends SimpleApplication {
         app.setDisplayStatView(false);
         app.setDisplayFps(false);
         app.start();
+    }
+
+    private static Wind parseWind(String name) {
+        return switch (name) {
+            case "calm" -> Wind.calm();
+            case "breezy" -> Wind.breezy();
+            case "storm" -> Wind.storm();
+            default -> throw new IllegalArgumentException("wind must be calm, breezy or storm: " + name);
+        };
     }
 
     private static Vector3f parseVector(String text) {
@@ -115,7 +143,7 @@ public final class WorldPreviewApp extends SimpleApplication {
         world = GeneratedWorld.generate(seed);
         ColorRGBA sky = night ? new ColorRGBA(0.04f, 0.05f, 0.09f, 1f) : new ColorRGBA(0.52f, 0.58f, 0.66f, 1f);
         viewPort.setBackgroundColor(sky);
-        WaterLighting lighting = night ? WaterLighting.night() : WaterLighting.day();
+        SceneLighting lighting = night ? SceneLighting.night() : SceneLighting.day();
 
         rootNode.addLight(new AmbientLight(lighting.ambient().mult(SCENE_LIGHT_SCALE)));
         rootNode.addLight(new DirectionalLight(lighting.sunDirection().normalize(),
@@ -124,6 +152,9 @@ public final class WorldPreviewApp extends SimpleApplication {
         rootNode.attachChild(terrain);
         water = new WaterView(assetManager, world, lighting);
         rootNode.attachChild(water.node());
+        bushes = BushPlacer.place(world);
+        foliage = new FoliageView(assetManager, bushes, lighting, wind);
+        rootNode.attachChild(foliage.node());
 
         FilterPostProcessor fog = new FilterPostProcessor(assetManager);
         fog.addFilter(new FogFilter(sky, FOG_DENSITY, FOG_DISTANCE));
@@ -132,7 +163,8 @@ public final class WorldPreviewApp extends SimpleApplication {
         flyCam.setMoveSpeed(MOVE_SPEED);
         cam.setFrustumPerspective(FOV, (float) WIDTH / HEIGHT, 0.3f, FAR);
         placeCamera();
-        LOG.info("seed {} view {} night {}: {} water bodies", seed, view, night, world.waterBodies().size());
+        LOG.info("seed {} view {} night {}: {} water bodies, {} bushes", seed, view, night,
+                world.waterBodies().size(), bushes.size());
         for (WaterBody b : world.waterBodies()) {
             LOG.info("  {} points={} frozen={} ice={}m", b.type(), b.pointCount(), b.isFrozen(),
                     b.iceThickness());
@@ -156,11 +188,19 @@ public final class WorldPreviewApp extends SimpleApplication {
             case "lake" -> lookAtBasin(first(b -> b.type() == WaterType.LAKE));
             case "ice" -> lookAt(first(WaterBody::isFrozen));
             case "open" -> lookAt(first(b -> !b.isFrozen()));
+            case "bush" -> lookAtBush(bushes.get(0));
             default -> {
                 cam.setLocation(new Vector3f(0f, OVERVIEW_UP, OVERVIEW_BACK));
                 cam.lookAt(Vector3f.ZERO, Vector3f.UNIT_Y);
             }
         }
+    }
+
+    private void lookAtBush(BushSpawn bush) {
+        float x = bush.x();
+        float z = bush.z() + BUSH_CAMERA_BACK;
+        cam.setLocation(new Vector3f(x, world.terrainHeight(x, z) + BUSH_CAMERA_UP, z));
+        cam.lookAt(new Vector3f(bush.x(), bush.y() + 0.6f, bush.z()), Vector3f.UNIT_Y);
     }
 
     private void lookAt(WaterBody body) {
@@ -201,9 +241,9 @@ public final class WorldPreviewApp extends SimpleApplication {
     public void simpleUpdate(float tpf) {
         frame++;
         if (shotPath != null) {
-            if (frame == SHOT_FRAME) {
+            if (frame == shotFrame) {
                 stateManager.getState(ScreenshotAppState.class).takeScreenshot();
-            } else if (frame >= EXIT_FRAME) {
+            } else if (frame >= shotFrame + FRAMES_AFTER_SHOT) {
                 stop();
             }
         }
@@ -213,6 +253,9 @@ public final class WorldPreviewApp extends SimpleApplication {
     public void destroy() {
         if (water != null) {
             water.dispose();
+        }
+        if (foliage != null) {
+            foliage.dispose();
         }
         if (terrain != null) {
             terrain.removeFromParent();

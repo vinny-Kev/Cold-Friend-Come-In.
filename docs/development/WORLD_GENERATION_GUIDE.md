@@ -15,7 +15,8 @@ Same seed (and same `WaterGenerator.GENERATION_VERSION`) always gives the same w
 1. **Base terrain** (`BaseTerrain`): fractal value noise, 4 octaves, frequency 1/70 per metre, amplitude 60 m before normalising. Hashing uses the seed, so there are no shared random streams and queries can be made in any order.
 2. **Water placement** (`WaterGenerator`): lakes, then rivers, then streams, with end-ponds where a river stops in a hollow. Each river is traced over the terrain already carved by earlier water. Details are in [WATER_SYSTEM.md](WATER_SYSTEM.md).
 3. **Carved terrain** (`TerrainCarver`): the final ground height with every channel cut in. `GeneratedWorld.terrainHeight` is this function.
-4. **Meshes** (`environment`, rendering only): `TerrainMeshBuilder` and `WaterView` read the finished world. Rendering never feeds back into generation.
+4. **Bushes** (`BushPlacer`): placed on the finished world on their own random stream, clear of water. See [FOLIAGE_WIND.md](FOLIAGE_WIND.md).
+5. **Meshes** (`environment`, rendering only): `TerrainMeshBuilder`, `WaterView` and `FoliageView` read the finished world. Rendering never feeds back into generation.
 
 ## Determinism rules
 

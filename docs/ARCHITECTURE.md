@@ -77,6 +77,7 @@ Format: Java `.properties`. See `docs/DECISIONS.md` for why JSON or YAML were no
 
 - `docs/development/WATER_SYSTEM.md`: water bodies, generation, rendering, detection, ice, troubleshooting.
 - `docs/development/WORLD_GENERATION_GUIDE.md`: pipeline and determinism rules.
+- `docs/development/FOLIAGE_WIND.md`: bushes and wind sway.
 - `docs/development/ARCHITECTURE_GUIDE.md`: structure and design decisions for the world and water code.
 
 ## Known gaps

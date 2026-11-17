@@ -1,0 +1,22 @@
+MaterialDef Foliage {
+
+    MaterialParameters {
+        Vector3 WindDirection
+        Float WindStrength
+        Float GustStrength
+        Vector3 SunDirection
+        Vector4 SunColor
+        Vector4 AmbientColor
+    }
+
+    Technique {
+        VertexShader GLSL150 GLSL100: Shaders/Foliage.vert
+        FragmentShader GLSL150 GLSL100: Shaders/Foliage.frag
+
+        WorldParameters {
+            ViewProjectionMatrix
+            WorldMatrix
+            Time
+        }
+    }
+}
