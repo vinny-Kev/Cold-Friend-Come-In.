@@ -24,6 +24,7 @@ public final class SurvivalActions {
     static final ItemId BRANCH = new ItemId("branch");
     static final ItemId MATCHES = new ItemId("matches");
     static final ItemId RATION = new ItemId("ration");
+    static final ItemId BANDAGE = new ItemId("bandage");
     static final ItemId WATER_FULL = new ItemId("water_container");
     static final ItemId WATER_EMPTY = new ItemId("water_container_empty");
     /** Shown when a dead player tries to act. */
@@ -88,6 +89,14 @@ public final class SurvivalActions {
             inventory.take(slot, 1);
             survival.eat(parameters.rationNourishment());
             return ActionResult.ok("You eat a ration.");
+        }
+        if (item.equals(BANDAGE)) {
+            if (survival.status().health() >= 100.0) {
+                return ActionResult.failed("You are not hurt.");
+            }
+            inventory.take(slot, 1);
+            survival.heal(parameters.bandageHealth());
+            return ActionResult.ok("You dress your wounds.");
         }
         if (item.equals(WATER_FULL)) {
             if (survival.status().hydration() >= 100.0) {

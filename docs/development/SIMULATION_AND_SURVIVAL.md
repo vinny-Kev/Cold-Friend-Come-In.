@@ -128,11 +128,23 @@ All actions are requests to `WorldSimulation`, which checks them and changes not
 | Key | Action | Code |
 |---|---|---|
 | E at the stove | If the stove is cold and has wood: light it (needs matches, uses one branch). Otherwise: add one firewood. Refused if there is no firewood or the stove is full. | `WorldSimulation.interact` with `InteractableRef.CABIN_HEARTH` → `SurvivalActions.tendHearth` |
-| F | Use the selected item: eat a ration; drink from a full water container (it becomes empty); fill an empty container while standing in water or with open water 1.2 m ahead. | `WorldSimulation.useItem` → `SurvivalActions.use` |
+| F | Use the selected item: eat a ration; drink from a full water container (it becomes empty); fill an empty container while standing in water or with open water 1.2 m ahead; dress wounds with a bandage (+25 health, refused at full health). | `WorldSimulation.useItem` → `SurvivalActions.use` |
 
 - Eating is refused at full nourishment, drinking at full hydration, so items are not wasted.
 - The water container has two item definitions in `config/items.properties`: `water_container` (full) and `water_container_empty`. Drinking or filling swaps one for the other, all or nothing.
 - The stove is within reach within 1.6 m of its centre. When the door and the stove are both in reach, the nearer one is used. An item the player looks at always comes first.
+
+## Keeping the game going: firewood and restart
+
+The starting kit (4 pieces) and the 3 by the stove last about one day. Two things keep a run going.
+
+**Deadfall firewood** (`world/items/Deadfall`). Stacks of 2 to 3 firewood lie in the forest. Ten are placed when a world starts; three more appear at each midnight (the start of each in-game day), never more than twelve of these stacks lying at once (wood the player drops does not count toward the twelve). Spots are 20 to 90 m from the cabin, on dry walkable ground clear of obstacles and at least 4 m from any other item. They are chosen from the world seed and the day number only (with `StrictMath`, so every machine agrees), so the same seed gives the same wood. They are ordinary world items: picked up with E through the normal pick-up path. Tuning constants are on the `Deadfall` class. Dead wood is drawn as a placeholder cube until a firewood model is approved.
+
+A dead player cannot drop, place or pick up items (the simulation refuses; a placement preview is closed on death).
+
+Rough balance: keeping a strong fire overnight costs 4 to 5 pieces a day; three stacks a day give 6 to 9 pieces, so the player must go out and gather in daylight but is not starved of wood. This is a proposal to tune in playtest.
+
+**Restart after death.** When health reaches 0 the HUD shows how the player died and `[Enter] Start again   [Esc] Menu`. After 1.5 seconds Enter or a click calls `ScreenNavigator.restartGame()`, which detaches the play screen and starts the same world again (the generated world is reused, not rebuilt) at the normal start time (07:00 on day 1). The inventory, needs, stove and items are all fresh. Esc still opens the pause menu, which can quit to the main menu. `dev.scenario=restart` triggers a restart for checking (it does not repeat after the restart).
 
 ## Interactable identity
 
@@ -160,14 +172,16 @@ All actions are requests to `WorldSimulation`, which checks them and changes not
 | `time/WorldClockTest` | Start, day length, phase boundaries, midnight wrap and day count, stepping, determinism, bad parameters |
 | `survival/SurvivalTest` | Start values, warmth targets, rise and fall rates, daily drain, health rules, warnings before critical, recovery, death, eat and drink, no time means no change, bounds under random input, determinism |
 | `survival/HearthTest` | Start state, adding wood and capacity, burn rate, strong to low to embers to out, embers relit by feeding, lighting, relighting, no time means no burn, bounds under random input, determinism |
-| `world/SurvivalSimulationTest` | The real simulation with the shipped items: start time and stove, feeding moves exactly one firewood, a full stove keeps the wood, no wood, relighting with matches and a branch, fire versus cold cabin, eating, drinking and filling, pause, frame-rate independence of clock, needs and fire, death after a warning, stable refs, out-of-reach requests |
+| `world/items/DeadfallTest` | Ten stacks at the start, every stack dry, walkable, 20 to 90 m away and 4 m apart, same seed same wood, three more at midnight up to the cap, different days different spots, no wood without a firewood item |
+| `world/SurvivalSimulationTest` | The real simulation with the shipped items (also bandages): start time and stove, feeding moves exactly one firewood, a full stove keeps the wood, no wood, relighting with matches and a branch, fire versus cold cabin, eating, drinking and filling, pause, frame-rate independence of clock, needs and fire, death after a warning, stable refs, out-of-reach requests |
 | `interaction/InteractableRefTest` | Equality, hashing, kinds, entity ids |
 | `state/PlayOptionsTest` | `dev.time` start times |
 
 ## Verification
 
-- `gradlew build` with `-Werror`: passes. 24 test classes, 197 tests, 0 failures, 0 skipped (JDK 21; Gradle 8.14.3 cannot run on the machine's default JDK 25, set `JAVA_HOME` to a JDK 21).
+- `gradlew build` with `-Werror`: passes. 26 test classes, 209 tests, 0 failures, 0 skipped (JDK 21; Gradle 8.14.3 cannot run on the machine's default JDK 25, set `JAVA_HOME` to a JDK 21).
 - The game was started three times with `dev.autostart` and `dev.screenshot` (seed 404): at 07:00 inside the cabin, at 22:00 in front of the stove, and at 22:00 from in front of the cabin. The frames show the HUD (day, time, needs, stove), the night sky, the stove's glowing fire door and the warm room light. The logs had no errors apart from known asset warnings (glTF models and footstep WAVs are not in the repository, so placeholders were used).
+- Restart was run in the real game with `dev.scenario=restart` (seed 404): the world was generated twice with the same seed, the player appeared at the same spot at 22:00 day 1 with a lit stove, and the log had no errors. The death screen, the Enter key and the pick-up of deadfall wood by hand were not exercised.
 - Keyboard and mouse were not driven by the developer. In two of the runs the frames showed input the developer did not send (the camera had turned, one firewood had gone into the stove and the door had been closed), most likely from someone using the machine while the window had focus. So E at the stove and at the door did work in the real game, but this was not a controlled check. **A hand playtest is still needed**: feed and relight the stove, eat, drink, fill at the river, pause and resume, die of cold, and watch a full day pass.
 
 ## Differences from the design
@@ -179,5 +193,5 @@ All actions are requests to `WorldSimulation`, which checks them and changes not
 | Fill only at `WATER_ACCESS` locations | Fill wherever there is open water at the player's feet or 1.2 m ahead | Simpler to play; any river is water. Revisit if water points should matter |
 | `water_full` item | `water_container` is the full flask, `water_container_empty` the empty one | Keeps the existing item id and its `Drink` verb |
 | Start fuel not set in the design | 3 fuel-hours | With 2 the fire started exactly at the strong threshold and fell to low heat at once (seen in the first run) |
-| River drink, chimney, felling trees, axe | Not built | Not in Phase A's scope |
+| River drink, chimney, felling trees, axe | Not built. Firewood comes from deadfall stacks on the ground instead of chopping | Felling needs scenery removal from instanced chunks and collision; deadfall gives the same continuity without it |
 | Wind, open door, wet clothes affecting warmth | Not built | Postponed in the design |

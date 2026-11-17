@@ -110,7 +110,7 @@ public final class SurvivalHud {
         warning.setLocalTranslation(width / 2f - warning.lineWidth() / 2f, height - WARNING_TOP, 0f);
 
         death.setText(status.dead() ? deathText(status.causeOfDeath().orElseThrow())
-                + "\n[Esc] menu" : "");
+                + "\n[Enter] Start again   [Esc] Menu" : "");
         death.setLocalTranslation(width / 2f - death.lineWidth() / 2f, height / 2f + death.lineHeight(), 0f);
     }
 

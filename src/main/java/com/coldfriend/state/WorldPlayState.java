@@ -83,6 +83,7 @@ public final class WorldPlayState extends BaseAppState {
     private static final float SCENARIO_LOOK_DOWN = -1.0f;
     private static final float SCENARIO_PLACE_LOOK = -0.7f;
     private static final int NO_SLOT = -1;
+    private static final float RESTART_DELAY = 1.5f;
 
     private final WorldData world;
     private final PropCatalog catalog;
@@ -113,6 +114,7 @@ public final class WorldPlayState extends BaseAppState {
     private float placementYaw;
     private float toastLeft;
     private float scenarioClock;
+    private float deadSeconds;
     private boolean scenarioDone;
     private float scenarioLook;
 
@@ -317,6 +319,9 @@ public final class WorldPlayState extends BaseAppState {
             return;
         }
         Camera camera = ((SimpleApplication) getApplication()).getCamera();
+        if (placingSlot != NO_SLOT && simulation.survival(PlayerId.LOCAL).dead()) {
+            endPlacement();
+        }
         if (placingSlot != NO_SLOT) {
             handlePlacementInput();
         } else if (!handleGameplayKeys()) {
@@ -329,6 +334,7 @@ public final class WorldPlayState extends BaseAppState {
             scenarioLook = 0f;
         }
         simulation.update(tpf, Map.of(PlayerId.LOCAL, input));
+        deadSeconds = simulation.survival(PlayerId.LOCAL).dead() ? deadSeconds + tpf : 0f;
         playFootsteps(input);
         scene.setCabinDoorOpen(simulation.isCabinDoorOpen());
         scene.setCabinFireLevel((float) simulation.hearthLevel());
@@ -361,6 +367,17 @@ public final class WorldPlayState extends BaseAppState {
         if (gameplayInput.consumePause()) {
             navigator.pauseGame();
             return false;
+        }
+        if (simulation.survival(PlayerId.LOCAL).dead()) {
+            // Enter or a click starts again, after a moment so a key held at the moment of death cannot skip the message.
+            if (gameplayInput.consumeConfirm() && deadSeconds >= RESTART_DELAY) {
+                navigator.restartGame();
+                return false;
+            }
+            gameplayInput.consumeInteract();
+            gameplayInput.consumeUse();
+            gameplayInput.consumeInventory();
+            return true;
         }
         if (gameplayInput.consumeInventory()) {
             navigator.openInventory();
@@ -561,6 +578,7 @@ public final class WorldPlayState extends BaseAppState {
         scenarioDone = true;
         switch (options.scenario()) {
             case "inventory" -> navigator.openInventory();
+            case "restart" -> navigator.restartGame();
             case "placement" -> {
                 scenarioLook = SCENARIO_PLACE_LOOK;
                 startPlacement(0);

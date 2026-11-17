@@ -154,3 +154,10 @@ Each entry: the decision, why, and what was considered. Entries marked **Open** 
 **Decision:** this file, `docs/DECISIONS.md`, is the decision log. `docs/development/DECISIONS.md` is a summary table whose IDs D-012 to D-026 mean different things from the entries here; it is kept for reference and no longer receives new decisions. New decisions start at D-027 here so no ID means two things.
 **Why:** two logs with clashing numbers made references ambiguous.
 **Status:** done. Merging the summary table's rows into this file is left for a later clean-up.
+
+## D-035: Firewood comes from seeded deadfall stacks; death restarts the same seed
+
+**Decision:** `world/items/Deadfall` scatters stacks of 2 to 3 firewood 20 to 90 m from the cabin (ten at the start, three more at each midnight, at most twelve of its own stacks at once), from the world seed and day number only, using `StrictMath`. Dying shows `[Enter] Start again`; after 1.5 s Enter or a click restarts the same world, reused rather than regenerated, at 07:00 on day 1 (`ScreenNavigator.restartGame`). Dead players cannot drop, place or pick up items. A bandage heals 25 health (`SurvivalParameters.bandageHealth`).
+**Why:** without a firewood source a run ends after about a day, and without a restart a death is a dead end. Felling trees would need scenery removal from instanced chunks and collision, which is much more work for the same continuity. Restarting the same seed keeps the owner's proposed default (roadmap open decision 4) and keeps the world deterministic.
+**Alternatives:** chopping trees with an axe (deferred, see the design); a new random seed on restart (the other option in the roadmap); wood that never runs out (rejected: removes the reason to go out).
+**Status:** implemented with tests. The counts and distances are proposals to tune in playtest.

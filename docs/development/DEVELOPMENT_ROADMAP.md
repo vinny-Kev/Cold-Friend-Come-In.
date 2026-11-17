@@ -26,7 +26,7 @@ Based on the repository as it stands. Labels: **Completed** (built and tested or
 |---|---|---|
 | Cabin | Layout, doorway, door opens and is drawn | Not yet playtested end to end. Check in-game that the prompt appears at the door and E opens it. |
 | Interaction | E uses the door, world items and the stove; F uses the selected item (eat, drink, fill). Identity is `InteractableRef` | Not playtested by hand end to end |
-| Survival loop | Clock, needs, stove, eating, drinking, filling water, death message | Rates not playtested; no restart flow, no firewood gathering, no chimney, no sounds for the fire |
+| Survival loop | Clock, needs, stove, eating, drinking, filling water, bandages, deadfall firewood, death and restart (same seed) | Rates and wood counts not playtested; no chopping, no chimney, no sounds for the fire |
 | World quality | Worlds generate and validate | The owner has not approved how the worlds look |
 | Models | Trees, rocks, bushes, cabin walls in use | No fallen logs; no approved hut; characters are placeholders |
 | Asset manifest and licences | Recorded for everything in use | Some textures' licences are unconfirmed (the Retro houses) |
@@ -34,7 +34,7 @@ Based on the repository as it stands. Labels: **Completed** (built and tested or
 ## Not implemented
 
 - **Audio beyond footsteps:** wind, fire, creature cues, music, positional audio and a full mixer. Footsteps on snow are wired (WAV only). See `docs/audio/AUDIO_DESIGN.md`.
-- **Survival beyond Phase A:** gathering firewood (felling trees), the chimney, death and restart, the seven-day structure. See `SURVIVAL_GAMEPLAY_ROADMAP.md`.
+- **Survival beyond Phase A:** felling trees, the chimney, the seven-day structure. See `SURVIVAL_GAMEPLAY_ROADMAP.md`.
 - **Narrative:** notes and storytelling; package is a placeholder.
 - **Creature:** behaviour, perception and cues; package is a placeholder.
 - **Save and load:** worlds are regenerated from their seed each time.

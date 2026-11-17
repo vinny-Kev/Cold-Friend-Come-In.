@@ -27,12 +27,13 @@ com.coldfriend
 │   ├── gen               world generation pipeline (see WORLD_GENERATION)  Implemented
 │   ├── model             WorldData and the data records it holds           Implemented
 │   ├── query             TerrainRules, WorldCollision, GridNavigation      Implemented
-│   ├── items             WorldItem(s), ItemActions, PlacementValidator     Implemented
+│   ├── items             WorldItem(s), ItemActions, PlacementValidator,    Implemented
+│   │                     Deadfall (seeded firewood in the forest)
 │   ├── render            WorldScene, TerrainMeshes, CabinView, VillageView, Implemented
 │   │                     WorldItemsView, PlacementPreview, RenderParts
 │   ├── WorldSimulation   authoritative world state, fixed-step update      Implemented
 │   ├── FixedStep         frame time to whole 20 Hz steps                   Implemented
-│   ├── SurvivalActions   eat, drink, fill, feed and light the stove        Implemented
+│   ├── SurvivalActions   eat, drink, fill, bandage, feed and light stove   Implemented
 │   └── SpawnPoints       player start positions                            Implemented
 ├── player                PlayerState, PlayerMovement, PlayerInput, PlayerId Partial
 ├── interaction           Interactable, InteractableRef, InteractableKind   Implemented
@@ -66,7 +67,7 @@ Screens are jME `BaseAppState` objects. Enabling and disabling them switches scr
 
 Menu screens share `MenuScreenState`, which handles drawing a `MenuModel`, mouse hover and click, and re-layout on window resize.
 
-`ScreenNavigator` is the interface screens use: `showMainMenu`, `showSettings`, `startNewGame`, `pauseGame`, `resumeGame`, `openInventory`, `closeInventory`, `beginPlacement`, `leaveWorld`, `saveAndApplySettings`, `quit`, `currentSettings`.
+`ScreenNavigator` is the interface screens use: `showMainMenu`, `showSettings`, `startNewGame`, `pauseGame`, `resumeGame`, `restartGame`, `openInventory`, `closeInventory`, `beginPlacement`, `leaveWorld`, `saveAndApplySettings`, `quit`, `currentSettings`.
 
 Only one of pause, inventory and placement owns input at a time: pause and inventory both stop the world (`WorldPlayState.setPaused(true)`, which releases gameplay input and shows the cursor) and take menu input through `InputController`; placement mode is part of `WorldPlayState` and uses gameplay input.
 

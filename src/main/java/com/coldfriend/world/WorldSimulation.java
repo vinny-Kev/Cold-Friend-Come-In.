@@ -23,6 +23,7 @@ import com.coldfriend.survival.SurvivalStatus;
 import com.coldfriend.time.ClockParameters;
 import com.coldfriend.time.DayPhase;
 import com.coldfriend.time.WorldClock;
+import com.coldfriend.world.items.Deadfall;
 import com.coldfriend.world.items.ItemActions;
 import com.coldfriend.world.items.PlacementCheck;
 import com.coldfriend.world.items.PlacementProblem;
@@ -65,6 +66,7 @@ public final class WorldSimulation {
     private final WorldItems worldItems = new WorldItems();
     private final PlacementValidator validator;
     private final ItemActions itemActions;
+    private final Deadfall deadfall;
     private final Map<PlayerId, PlayerState> players = new LinkedHashMap<>();
     private final Map<PlayerId, Inventory> inventories = new LinkedHashMap<>();
     private final Map<PlayerId, Survival> survival = new LinkedHashMap<>();
@@ -111,6 +113,8 @@ public final class WorldSimulation {
         this.validator = new PlacementValidator(world, collision, worldItems, catalog);
         this.itemActions = new ItemActions(catalog, worldItems, validator, collision);
         StartingItems.populate(world, catalog, worldItems, validator);
+        this.deadfall = new Deadfall(world, catalog, collision, worldItems, validator);
+        deadfall.scatter(clock.day(), Deadfall.INITIAL_STACKS);
     }
 
     /** @return the generated world this simulation runs in */
@@ -277,6 +281,11 @@ public final class WorldSimulation {
         return survivalActions.use(player, inventories.get(id), survival.get(id), slot);
     }
 
+    private boolean isDead(PlayerId id) {
+        Survival needs = survival.get(id);
+        return needs != null && needs.dead();
+    }
+
     private static float distanceSquared(PlayerState player, Interactable target) {
         float dx = target.x() - player.x();
         float dz = target.z() - player.z();
@@ -326,6 +335,9 @@ public final class WorldSimulation {
      * @return what happened
      */
     public ActionResult pickUpItem(PlayerId id, EntityId item) {
+        if (isDead(id)) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
         return itemActions.pickUp(players.get(id), inventories.get(id), item);
     }
 
@@ -338,6 +350,9 @@ public final class WorldSimulation {
      * @return what happened
      */
     public ActionResult dropItem(PlayerId id, int slot, int quantity) {
+        if (isDead(id)) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
         return itemActions.drop(players.get(id), inventories.get(id), slot, quantity);
     }
 
@@ -352,6 +367,9 @@ public final class WorldSimulation {
      * @return what happened
      */
     public ActionResult placeItem(PlayerId id, int slot, float x, float z, float yaw) {
+        if (isDead(id)) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
         return itemActions.place(players.get(id), inventories.get(id), slot, x, z, yaw);
     }
 
@@ -412,7 +430,9 @@ public final class WorldSimulation {
                     : inputs.getOrDefault(player.id(), PlayerInput.NONE);
             movement.move(player, input, FixedStep.STEP_SECONDS);
         }
-        clock.advanceStep();
+        if (clock.advanceStep()) {
+            deadfall.scatter(clock.day(), Deadfall.DAILY_STACKS);
+        }
         double minutes = clock.minutesPerStep();
         hearth.update(minutes);
         DayPhase phase = clock.phase();

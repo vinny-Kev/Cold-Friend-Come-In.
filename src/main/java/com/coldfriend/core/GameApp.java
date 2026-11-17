@@ -56,6 +56,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private SettingsState settingsState;
     private PauseState pauseState;
     private WorldPlayState worldState;
+    private WorldData currentWorld;
     private ModelCatalog catalog;
     private ItemCatalog items;
     private InventoryState inventoryState;
@@ -213,7 +214,35 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     }
 
     private void enterNewWorld() {
-        WorldSeed seed = config.optionalString(SEED_KEY).map(WorldSeed::parse).orElseGet(WorldSeed::random);
+        enterWorld(config.optionalString(SEED_KEY).map(WorldSeed::parse).orElseGet(WorldSeed::random), null,
+                config.optionalString(SCENARIO_KEY).orElse(""));
+    }
+
+    @Override
+    public void restartGame() {
+        if (currentWorld == null) {
+            return;
+        }
+        // Detach after this frame's update, not during it. A development script is not run a second time.
+        enqueue(() -> {
+            if (inventoryState != null) {
+                stateManager.detach(inventoryState);
+                inventoryState = null;
+            }
+            if (worldState != null) {
+                stateManager.detach(worldState);
+                worldState = null;
+            }
+            enterWorld(new WorldSeed(currentWorld.seed()), currentWorld, "");
+        });
+    }
+
+    /**
+     * @param seed the world's seed, for the log
+     * @param existing a world to play again (it never changes, so a restart can reuse it), or null to generate one
+     * @param scenario a development script, or empty
+     */
+    private void enterWorld(WorldSeed seed, WorldData existing, String scenario) {
         try {
             if (catalog == null) {
                 catalog = new ModelCatalog(assetManager, CATALOG_FILE);
@@ -221,7 +250,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
             if (items == null) {
                 items = ItemCatalog.load(ITEMS_FILE);
             }
-            WorldData world = WorldGenerator.generate(seed, WorldGenParameters.DEFAULT);
+            WorldData world = existing != null ? existing : WorldGenerator.generate(seed, WorldGenParameters.DEFAULT);
             mainMenuState.setEnabled(false);
             settingsState.setEnabled(false);
             pauseState.setEnabled(false);
@@ -229,7 +258,8 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
             worldState = new WorldPlayState(world, catalog, items, this, new PlayOptions(
                     config.optionalString(SPAWN_KEY).orElse("cabin"),
                     startMinute(),
-                    config.optionalString(SCENARIO_KEY).orElse("")));
+                    scenario));
+            currentWorld = world;
             stateManager.attach(worldState);
         } catch (IOException | RuntimeException e) {
             LOG.error("Could not start a new game with seed {}", seed, e);
@@ -251,6 +281,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
 
     @Override
     public void leaveWorld() {
+        currentWorld = null;
         if (inventoryState != null) {
             stateManager.detach(inventoryState);
             inventoryState = null;

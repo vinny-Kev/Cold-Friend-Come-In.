@@ -152,6 +152,22 @@ class SurvivalTest {
     }
 
     @Test
+    void healingRestoresHealthUpToTheMaximumAndNotAfterDeath() {
+        Survival s = new Survival(P);
+        run(s, 41, false, false, DayPhase.NIGHT, Heat.NONE);
+        double hurt = s.status().health();
+        assertTrue(hurt < 100);
+        assertTrue(s.heal(P.bandageHealth()));
+        assertEquals(Math.min(100, hurt + 25), s.status().health(), 1e-9);
+        assertTrue(s.heal(1000));
+        assertEquals(100, s.status().health());
+        run(s, 300, false, false, DayPhase.NIGHT, Heat.NONE);
+        assertTrue(s.status().dead());
+        assertFalse(s.heal(25));
+        assertEquals(0, s.status().health());
+    }
+
+    @Test
     void noTimeMeansNoChange() {
         Survival s = new Survival(P);
         s.update(0, false, true, DayPhase.NIGHT, Heat.NONE);

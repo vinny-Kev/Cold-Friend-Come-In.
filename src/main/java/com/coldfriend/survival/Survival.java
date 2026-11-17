@@ -136,6 +136,20 @@ public final class Survival {
         return true;
     }
 
+    /**
+     * Healing: restores health, up to the maximum.
+     *
+     * @param amount how much
+     * @return false, with nothing changed, if the player is dead
+     */
+    public boolean heal(double amount) {
+        if (causeOfDeath != null) {
+            return false;
+        }
+        health = clamp(health + amount);
+        return true;
+    }
+
     /** @return true once health has reached 0 */
     public boolean dead() {
         return causeOfDeath != null;

@@ -42,6 +42,7 @@ class SurvivalSimulationTest {
     private static final ItemId BRANCH = new ItemId("branch");
     private static final ItemId MATCHES = new ItemId("matches");
     private static final ItemId RATION = new ItemId("ration");
+    private static final ItemId BANDAGE = new ItemId("bandage");
     private static final ItemId WATER_FULL = new ItemId("water_container");
     private static final ItemId WATER_EMPTY = new ItemId("water_container_empty");
     /** One update of exactly the step cap, so long runs are quick: 0.25 s is five steps. */
@@ -266,6 +267,41 @@ class SurvivalSimulationTest {
             }
         }
         return null;
+    }
+
+    @Test
+    void aBandageHealsOnlyWhenHurtAndIsUsedUp() {
+        WorldSimulation simulation = simulation(22 * 60);
+        simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, "village"));
+        Inventory inventory = simulation.inventory(PlayerId.LOCAL);
+        int bandages = inventory.count(BANDAGE);
+        assertFalse(simulation.useItem(PlayerId.LOCAL, slotOf(inventory, BANDAGE)).success(), "not hurt");
+        assertEquals(bandages, inventory.count(BANDAGE));
+
+        // Out in the night cold until warmth is critical and health has dropped.
+        runMinutes(simulation, 45);
+        double hurt = simulation.survival(PlayerId.LOCAL).health();
+        assertTrue(hurt < 100, "health " + hurt);
+        assertTrue(simulation.useItem(PlayerId.LOCAL, slotOf(inventory, BANDAGE)).success());
+        assertEquals(bandages - 1, inventory.count(BANDAGE));
+        assertTrue(simulation.survival(PlayerId.LOCAL).health() > hurt);
+    }
+
+    @Test
+    void aDeadPlayerCannotDropPlaceOrPickUpItems() {
+        WorldSimulation simulation = simulation(22 * 60);
+        simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, "village"));
+        while (!simulation.survival(PlayerId.LOCAL).dead()) {
+            simulation.update(BIG_FRAME, Map.of());
+        }
+        Inventory inventory = simulation.inventory(PlayerId.LOCAL);
+        int wood = inventory.count(FIREWOOD);
+        int lying = simulation.worldItems().size();
+
+        assertFalse(simulation.dropItem(PlayerId.LOCAL, slotOf(inventory, FIREWOOD), 1).success());
+        assertFalse(simulation.placeItem(PlayerId.LOCAL, slotOf(inventory, FIREWOOD), 0f, 0f, 0f).success());
+        assertEquals(wood, inventory.count(FIREWOOD));
+        assertEquals(lying, simulation.worldItems().size());
     }
 
     @Test

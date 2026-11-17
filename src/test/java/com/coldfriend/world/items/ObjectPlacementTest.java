@@ -286,9 +286,15 @@ class ObjectPlacementTest {
 
         assertFalse(simulation.worldItems().isEmpty());
         assertTrue(simulation.inventory(PlayerId.LOCAL).count(new ItemId("firewood")) > 0);
+        // The three starting items are in the cabin; the rest is deadfall firewood lying in the forest.
+        int inCabin = 0;
         for (WorldItem item : simulation.worldItems()) {
-            assertTrue(SimFixture.world().cabin().footprint().contains(item.x(), item.z(), 0f),
-                    item.stack().item() + " starts outside the cabin");
+            if (SimFixture.world().cabin().footprint().contains(item.x(), item.z(), 0f)) {
+                inCabin++;
+            } else {
+                assertEquals(new ItemId("firewood"), item.stack().item(), "only firewood lies outside the cabin");
+            }
         }
+        assertEquals(3, inCabin);
     }
 }

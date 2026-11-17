@@ -33,6 +33,7 @@ package com.coldfriend.survival;
  * @param recoveryAbove the level every need must hold for health to recover
  * @param rationNourishment nourishment one ration restores
  * @param drinkHydration hydration one drink restores
+ * @param bandageHealth health one bandage restores
  */
 public record SurvivalParameters(
         double startWarmth,
@@ -62,7 +63,8 @@ public record SurvivalParameters(
         double healthRecovery,
         double recoveryAbove,
         double rationNourishment,
-        double drinkHydration) {
+        double drinkHydration,
+        double bandageHealth) {
 
     /** The values proposed in the survival design, to be tuned by playtesting. */
     public static final SurvivalParameters DEFAULT = new SurvivalParameters(
@@ -77,5 +79,6 @@ public record SurvivalParameters(
             30, 10,
             50,
             1, 4, 1, 40,
-            45, 30);
+            45, 30,
+            25);
 }
