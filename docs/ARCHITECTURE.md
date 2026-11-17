@@ -7,7 +7,7 @@ Cold Friend, Come In is a single desktop application built as a modular monolith
 | Concern | Choice | Version |
 |---|---|---|
 | Language | Java | 21 (toolchain) |
-| Engine | jMonkeyEngine: jme3-core, jme3-desktop, jme3-lwjgl3, jme3-effects | 3.9.0-stable |
+| Engine | jMonkeyEngine: jme3-core, jme3-desktop, jme3-lwjgl3, jme3-effects, jme3-plugins | 3.9.0-stable |
 | Logging | SLF4J API with slf4j-simple backend | 2.0.17 |
 | Tests | JUnit Jupiter | 5.11.4 |
 | Build | Gradle, Groovy DSL, wrapper | 8.14.3 |
@@ -24,11 +24,17 @@ Versions are pinned in `gradle.properties`.
 | `input` | Central mapping from keys and mouse to `GameAction`, input ownership | Implemented |
 | `ui` | Menu model (pure logic) and menu view (text rendering, hit testing) | Implemented |
 | `environment` | Procedural menu scene: ground, trees, cabin, snow, camera sway (fog is applied by `state/BackdropState`); terrain and water rendering (`TerrainMeshBuilder`, `WaterView`) | Implemented |
-| `world` | Seeded terrain and water bodies (rivers, streams, lakes, ponds, ice) with analytic queries; no engine types | Implemented (terrain and water only; see `docs/development/`) |
-| `dev` | Developer tools, e.g. `WorldPreviewApp` (`./gradlew worldPreview`) | Implemented |
+| `world.gen` | Seeded generation pipeline: seed, streams, noise, terrain, rivers, regions, vegetation, structures, validation | Implemented |
+| `world.model` | Generated world data with no engine types: terrain, rivers, regions, scenery, cabin, village, paths, locations | Implemented |
+| `world.query` | Walkability rules, collision, grid navigation | Implemented |
+| `world.render` | Terrain, water, instanced scenery, cabin and village drawing | Implemented |
+| `world` | `WorldSimulation` (authoritative state), spawn points; the standalone `GeneratedWorld` module (seeded terrain, water bodies with ice, bushes; separate from `world.gen`/`world.model`, see `docs/development/ARCHITECTURE_GUIDE.md`) | Implemented, not yet wired into the game |
+| `player` | Player identity, state, input and movement, no engine types | Implemented |
+| `interaction` | Interactables and interaction requests | Implemented (door only) |
+| `assets` | Prop kinds, prop catalogue, model loading | Implemented |
 | `audio` | Playback and mixing | Planned |
-| `assets` | Asset interfaces decoupling gameplay from file formats | Planned |
-| `player`, `interaction`, `survival`, `creature`, `inventory`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
+| `survival`, `creature`, `inventory`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
+| `dev` | Developer tools, e.g. `WorldPreviewApp` (`./gradlew worldPreview`) | Implemented |
 
 ## Dependency direction
 
@@ -84,3 +90,11 @@ Format: Java `.properties`. See `docs/DECISIONS.md` for why JSON or YAML were no
 
 - No audio playback, so volume settings are stored but not applied.
 - Restarting the display on resolution, fullscreen or vsync change has been designed but must be checked on the target machine (see README verification notes).
+
+## Layers and multiplayer
+
+1. `WorldData` (generated, immutable, no engine types): the same for the same seed, generation version and parameters.
+2. `WorldSimulation` (authoritative mutable state): players keyed by `PlayerId`, the cabin door, later NPCs, items and the creature. It advances only from `PlayerInput` and `InteractionRequest` values.
+3. Presentation (`state`, `world.render`, `input`): reads the other two layers, draws, reads devices. It never decides gameplay.
+
+Future NPCs, the shapeshifter and other players belong in layer 2, keyed by stable ids. Appearance (what is drawn) is separate from identity and behaviour, so a disguise is an appearance assigned to an entity.

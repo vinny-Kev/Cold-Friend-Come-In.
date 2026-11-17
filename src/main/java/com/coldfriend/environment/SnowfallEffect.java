@@ -9,6 +9,7 @@ import com.jme3.material.RenderState;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.renderer.queue.RenderQueue;
+import com.jme3.scene.Spatial;
 
 /** Subtle falling snow: a particle emitter spread over a box above the camera's view. */
 final class SnowfallEffect {
@@ -50,10 +51,26 @@ final class SnowfallEffect {
         emitter.setGravity(0f, 0f, 0f);
         emitter.setLowLife(MIN_LIFE);
         emitter.setHighLife(MAX_LIFE);
-        emitter.setParticlesPerSec(maxParticles / ((MIN_LIFE + MAX_LIFE) / 2f));
         emitter.setShape(new EmitterBoxShape(BOX_MIN, BOX_MAX));
         emitter.getParticleInfluencer().setInitialVelocity(FALL_VELOCITY);
         emitter.getParticleInfluencer().setVelocityVariation(VELOCITY_VARIATION);
         return emitter;
+    }
+
+    /**
+     * Sets how much snow falls. The emitter must have been created with room for the largest amount.
+     *
+     * @param emitter the emitter made by {@link #create}
+     * @param normalCount flakes alive at once at a factor of 1
+     * @param factor multiplier on the normal amount; 0 stops the snow and hides it
+     */
+    static void setAmount(ParticleEmitter emitter, int normalCount, float factor) {
+        emitter.setParticlesPerSec(normalCount * factor / ((MIN_LIFE + MAX_LIFE) / 2f));
+        if (factor <= 0f) {
+            emitter.killAllParticles();
+            emitter.setCullHint(Spatial.CullHint.Always);
+        } else {
+            emitter.setCullHint(Spatial.CullHint.Inherit);
+        }
     }
 }

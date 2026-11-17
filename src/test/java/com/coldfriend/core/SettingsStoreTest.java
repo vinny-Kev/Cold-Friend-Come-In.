@@ -13,7 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 class SettingsStoreTest {
 
     private static final GameSettings DEFAULTS = new GameSettings(
-            80, 70, 80, new Resolution(1280, 720), false, true);
+            80, 70, 80, new Resolution(1280, 720), false, true, Intensity.NORMAL, Intensity.NORMAL, true);
 
     @TempDir
     Path tempDir;
@@ -29,7 +29,8 @@ class SettingsStoreTest {
     void savedSettingsRoundTrip() throws IOException {
         Path file = tempDir.resolve("nested/settings.properties");
         SettingsStore store = new SettingsStore(file, DEFAULTS);
-        GameSettings chosen = new GameSettings(10, 20, 30, new Resolution(1920, 1080), true, false);
+        GameSettings chosen = new GameSettings(10, 20, 30, new Resolution(1920, 1080), true, false,
+                Intensity.HEAVY, Intensity.OFF, false);
 
         store.save(chosen);
 
@@ -45,7 +46,9 @@ class SettingsStoreTest {
                 "musicVolume=33",
                 "resolution=banana",
                 "fullscreen=maybe",
-                "vsync=false"), StandardCharsets.UTF_8);
+                "vsync=false",
+                "fog=thick",
+                "snow=light"), StandardCharsets.UTF_8);
 
         GameSettings loaded = new SettingsStore(file, DEFAULTS).load();
 
@@ -54,5 +57,8 @@ class SettingsStoreTest {
         assertEquals(DEFAULTS.resolution(), loaded.resolution());
         assertEquals(DEFAULTS.fullscreen(), loaded.fullscreen());
         assertEquals(false, loaded.vsync());
+        assertEquals(DEFAULTS.fog(), loaded.fog());
+        assertEquals(Intensity.LIGHT, loaded.snow());
+        assertEquals(DEFAULTS.cameraSway(), loaded.cameraSway());
     }
 }

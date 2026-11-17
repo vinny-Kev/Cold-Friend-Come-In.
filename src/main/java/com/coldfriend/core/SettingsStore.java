@@ -25,6 +25,9 @@ public final class SettingsStore {
     private static final String KEY_RESOLUTION = "resolution";
     private static final String KEY_FULLSCREEN = "fullscreen";
     private static final String KEY_VSYNC = "vsync";
+    private static final String KEY_FOG = "fog";
+    private static final String KEY_SNOW = "snow";
+    private static final String KEY_CAMERA_SWAY = "cameraSway";
 
     private final Path file;
     private final GameSettings defaults;
@@ -61,7 +64,10 @@ public final class SettingsStore {
                 readVolume(props, KEY_SFX_VOLUME, defaults.sfxVolume()),
                 readResolution(props),
                 readBoolean(props, KEY_FULLSCREEN, defaults.fullscreen()),
-                readBoolean(props, KEY_VSYNC, defaults.vsync()));
+                readBoolean(props, KEY_VSYNC, defaults.vsync()),
+                readIntensity(props, KEY_FOG, defaults.fog()),
+                readIntensity(props, KEY_SNOW, defaults.snow()),
+                readBoolean(props, KEY_CAMERA_SWAY, defaults.cameraSway()));
     }
 
     /**
@@ -78,6 +84,9 @@ public final class SettingsStore {
         props.setProperty(KEY_RESOLUTION, settings.resolution().toString());
         props.setProperty(KEY_FULLSCREEN, Boolean.toString(settings.fullscreen()));
         props.setProperty(KEY_VSYNC, Boolean.toString(settings.vsync()));
+        props.setProperty(KEY_FOG, settings.fog().name());
+        props.setProperty(KEY_SNOW, settings.snow().name());
+        props.setProperty(KEY_CAMERA_SWAY, Boolean.toString(settings.cameraSway()));
 
         Path parent = file.toAbsolutePath().getParent();
         if (parent != null) {
@@ -115,6 +124,19 @@ public final class SettingsStore {
         } catch (IllegalArgumentException e) {
             LOG.warn("Invalid resolution '{}'; using {}", value, defaults.resolution());
             return defaults.resolution();
+        }
+    }
+
+    private static Intensity readIntensity(Properties props, String key, Intensity fallback) {
+        String value = props.getProperty(key);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Intensity.parse(value);
+        } catch (IllegalArgumentException e) {
+            LOG.warn("Invalid level for {}: '{}'; using {}", key, value, fallback);
+            return fallback;
         }
     }
 

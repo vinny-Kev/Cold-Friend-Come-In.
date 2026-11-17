@@ -12,12 +12,37 @@ class GameSettingsTest {
     private static final Resolution FHD = new Resolution(1920, 1080);
 
     private static GameSettings base() {
-        return new GameSettings(80, 70, 60, HD, false, true);
+        return new GameSettings(80, 70, 60, HD, false, true, Intensity.NORMAL, Intensity.NORMAL, true);
+    }
+
+    @Test
+    void backdropChangesApplyWithoutADisplayRestart() {
+        GameSettings original = base();
+
+        assertFalse(original.requiresDisplayRestart(original.withFog(Intensity.HEAVY)));
+        assertFalse(original.requiresDisplayRestart(original.withSnow(Intensity.OFF)));
+        assertFalse(original.requiresDisplayRestart(original.withCameraSway(false)));
+    }
+
+    @Test
+    void intensityStepsWrapAndParseIgnoresCase() {
+        assertEquals(Intensity.OFF, Intensity.HEAVY.step(1));
+        assertEquals(Intensity.HEAVY, Intensity.OFF.step(-1));
+        assertEquals(Intensity.LIGHT, Intensity.parse(" light "));
+    }
+
+    @Test
+    void effectVolumeIsMasterTimesEffects() {
+        GameSettings settings = new GameSettings(80, 70, 50, HD, false, true, Intensity.NORMAL, Intensity.NORMAL, true);
+
+        assertEquals(0.4f, settings.effectVolume(), 1e-6f);
+        assertEquals(0f, settings.withSfxVolume(0).effectVolume(), 1e-6f);
+        assertEquals(1f, settings.withMasterVolume(100).withSfxVolume(100).effectVolume(), 1e-6f);
     }
 
     @Test
     void volumesAreClampedToPercentageRange() {
-        GameSettings settings = new GameSettings(150, -20, 50, HD, false, true);
+        GameSettings settings = new GameSettings(150, -20, 50, HD, false, true, Intensity.NORMAL, Intensity.NORMAL, true);
 
         assertEquals(GameSettings.MAX_VOLUME, settings.masterVolume());
         assertEquals(GameSettings.MIN_VOLUME, settings.musicVolume());

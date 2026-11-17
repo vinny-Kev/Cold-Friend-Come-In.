@@ -19,6 +19,11 @@ Source: project owner's brief. **Planned.**
 ## Visual direction
 
 - Low-poly environments, pixelated low-resolution textures, crooked winter trees, dense snowy forests, heavy fog. **Planned.**
+- Setting: a remote winter settlement. Asian or oriental influence is optional, not required. The tree mix is kept small, not a rainforest-style variety. **Decided by the owner; assets not yet sourced.**
+- Cabin: a hut with a thatched roof, not a log cabin. **Decided by the owner.**
+- Assets: free packs only. No paid packs. **Decided by the owner.**
+- Characters: grounded and less cartoonish, suited to a horror game. The current stylised character pack (KayKit Adventurers) is a placeholder only. **Decided by the owner.**
+- Houses: the Retro house pack is accepted as is. **Decided by the owner.**
 - Warm cabin interiors against cold exteriors. **Planned.**
 - VHS-inspired post-processing, used selectively. **Planned.**
 - Externally sourced glTF/GLB models will be supplied by the owner. **Planned.**
@@ -27,21 +32,21 @@ Source: project owner's brief. **Planned.**
 
 Snow footsteps varying by surface and footwear, wind through trees and structures, fireplace crackle, creaking wood, wildlife ambience, distant disturbances, positional audio for threats and interactions. **Planned.**
 
-## Current implementation (milestone 1: project foundation)
+## Current implementation (milestone 2: procedural world and gameplay foundation)
 
 **Implemented:**
 
-- Main menu titled "COLD FRIEND, COME IN." with New Game, Continue, Settings, Quit.
-- New Game is a placeholder: it shows "Gameplay is not implemented yet."
-- Continue is shown dimmed and cannot be selected, because saving does not exist yet.
-- Settings screen with master, music and sound-effect volume, resolution, fullscreen and vsync.
-- Procedural menu backdrop: snow ground, crooked conifers, a lit cabin, falling snow, fog, slow camera sway.
+- Main menu: New Game, Continue (dimmed until saving exists), Settings, Quit.
+- Settings: volumes (stored, not applied), resolution, fullscreen, vsync, fog, snow, camera sway.
+- New Game generates a seeded world (1536 m square) and starts a first-person game: mouse look, walking, running, wading shallow water, collision with terrain, trees, rocks and buildings.
+- Terrain with hills, valleys, mountains and hollows; rivers that run downhill and widen downstream; five regions (conifer forest, open woodland, mountain forest, river valley, clearing); about 40,000 pieces of scenery per world (conifers, bare and dead trees, rocks, bushes, fallen logs, pebbles) placed by region, slope and distance to water.
+- A cabin the player starts inside: door (E), bed, stove, table, glowing windows, warm interior light and a lantern. Its distance to water and forest density vary with the seed.
+- A village with a general store, several homes, a square with a well and lamp post, paths to every door, and a trail to the cabin. Buildings are empty shells.
+- Places to collect water, fords where paths cross rivers, and a check that the village, every door and every water point can be walked to from the cabin.
+- Pause menu (Escape): Resume, Settings, Quit to Menu.
+- Seeds: random by default or set with `world.seed`; seed, generation version and parameter fingerprint are logged.
 
-**Settings behaviour (implemented):**
-
-- Volumes are saved to `config/settings.properties` but **not yet applied**, because there is no audio system in this milestone. The settings screen says so.
-- Resolution, fullscreen and vsync are applied. Changing them restarts the display when Apply is chosen.
-- Back discards unapplied changes.
+**Not implemented:** NPCs, dialogue, trading, items, the shapeshifter, survival needs, hunting, audio, saving, multiplayer. The world data (`world.model`) already has stable ids and named locations they will use.
 
 ## Planned, not decided
 

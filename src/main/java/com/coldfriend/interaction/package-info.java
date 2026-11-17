@@ -1,2 +1,2 @@
-/** Player interaction with world objects (planned, not implemented). */
+/** Things a player can use in the world, and requests to use them. */
 package com.coldfriend.interaction;

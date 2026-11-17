@@ -61,6 +61,9 @@ public final class SettingsState extends MenuScreenState {
                 MenuItem.value("", delta -> draft = draft.withResolution(nextResolution(delta))),
                 MenuItem.value("", delta -> draft = draft.withFullscreen(!draft.fullscreen())),
                 MenuItem.value("", delta -> draft = draft.withVsync(!draft.vsync())),
+                MenuItem.value("", delta -> draft = draft.withFog(draft.fog().step(delta))),
+                MenuItem.value("", delta -> draft = draft.withSnow(draft.snow().step(delta))),
+                MenuItem.value("", delta -> draft = draft.withCameraSway(!draft.cameraSway())),
                 MenuItem.action("Apply", this::applyAndClose),
                 MenuItem.action("Back", navigator::showMainMenu));
         this.model = new MenuModel(items);
@@ -153,6 +156,9 @@ public final class SettingsState extends MenuScreenState {
         items.get(3).setLabel("Resolution: " + draft.resolution());
         items.get(4).setLabel("Fullscreen: " + onOff(draft.fullscreen()));
         items.get(5).setLabel("VSync: " + onOff(draft.vsync()));
+        items.get(6).setLabel("Fog: " + draft.fog().label());
+        items.get(7).setLabel("Snow: " + draft.snow().label());
+        items.get(8).setLabel("Camera Sway: " + onOff(draft.cameraSway()));
         menuView.refresh();
     }
 
