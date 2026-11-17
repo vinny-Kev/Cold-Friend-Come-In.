@@ -1,0 +1,30 @@
+MaterialDef Water {
+
+    MaterialParameters {
+        Vector4 ShallowColor
+        Vector4 DeepColor
+        Vector4 IceColor
+        Vector4 SkyColor
+        Vector4 SunColor
+        Vector4 AmbientColor
+        Vector3 SunDirection
+    }
+
+    Technique {
+        VertexShader GLSL150 GLSL100: Shaders/Water.vert
+        FragmentShader GLSL150 GLSL100: Shaders/Water.frag
+
+        WorldParameters {
+            WorldViewProjectionMatrix
+            WorldMatrix
+            CameraPosition
+            Time
+        }
+
+        RenderState {
+            Blend Alpha
+            FaceCull Off
+            DepthWrite Off
+        }
+    }
+}

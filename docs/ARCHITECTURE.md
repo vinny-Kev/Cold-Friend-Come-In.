@@ -23,17 +23,18 @@ Versions are pinned in `gradle.properties`.
 | `state` | Screen states: menu backdrop, main menu, settings; navigation interface | Implemented |
 | `input` | Central mapping from keys and mouse to `GameAction`, input ownership | Implemented |
 | `ui` | Menu model (pure logic) and menu view (text rendering, hit testing) | Implemented |
-| `environment` | Procedural menu scene: ground, trees, cabin, snow, camera sway (fog is applied by `state/BackdropState`) | Implemented |
+| `environment` | Procedural menu scene: ground, trees, cabin, snow, camera sway (fog is applied by `state/BackdropState`); terrain and water rendering (`TerrainMeshBuilder`, `WaterView`) | Implemented |
 | `world.gen` | Seeded generation pipeline: seed, streams, noise, terrain, rivers, regions, vegetation, structures, validation | Implemented |
 | `world.model` | Generated world data with no engine types: terrain, rivers, regions, scenery, cabin, village, paths, locations | Implemented |
 | `world.query` | Walkability rules, collision, grid navigation | Implemented |
 | `world.render` | Terrain, water, instanced scenery, cabin and village drawing | Implemented |
-| `world` | `WorldSimulation` (authoritative state), spawn points | Implemented |
+| `world` | `WorldSimulation` (authoritative state), spawn points; seeded terrain and water bodies (rivers, lakes, ice) with analytic queries | Implemented |
 | `player` | Player identity, state, input and movement, no engine types | Implemented |
 | `interaction` | Interactables and interaction requests | Implemented (door only) |
 | `assets` | Prop kinds, prop catalogue, model loading | Implemented |
 | `audio` | Playback and mixing | Planned |
 | `survival`, `creature`, `inventory`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
+| `dev` | Developer tools, e.g. `WorldPreviewApp` (`./gradlew worldPreview`) | Implemented |
 
 ## Dependency direction
 
@@ -77,6 +78,12 @@ Format: Java `.properties`. See `docs/DECISIONS.md` for why JSON or YAML were no
 ## Assets
 
 `assets/` holds externally sourced assets, in folders for models, textures, materials, audio, music, environments and UI. Empty folders are kept with `.gitkeep`. The menu scene uses only engine built-ins and procedural geometry.
+
+## Developer documentation
+
+- `docs/development/WATER_SYSTEM.md`: water bodies, generation, rendering, detection, ice, troubleshooting.
+- `docs/development/WORLD_GENERATION_GUIDE.md`: pipeline and determinism rules.
+- `docs/development/ARCHITECTURE_GUIDE.md`: structure and design decisions for the world and water code.
 
 ## Known gaps
 

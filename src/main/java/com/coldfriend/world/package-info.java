@@ -1,2 +1,2 @@
-/** World model: forest layout, regions and spatial data (planned, not implemented). */
+/** World model: seeded terrain, water bodies (rivers, streams, lakes, ponds, ice) and spatial queries. */
 package com.coldfriend.world;
