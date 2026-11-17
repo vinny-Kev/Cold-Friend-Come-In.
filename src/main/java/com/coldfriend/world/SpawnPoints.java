@@ -20,6 +20,7 @@ public final class SpawnPoints {
     private static final float HOME_VIEW_DISTANCE = 5f;
     private static final float INSIDE_FORWARD = -0.8f;
     private static final float CABIN_VIEW_DISTANCE = 11f;
+    private static final float STOVE_STAND_DISTANCE = 1.3f;
 
     private SpawnPoints() {
     }
@@ -29,7 +30,7 @@ public final class SpawnPoints {
      * @param name {@code cabin} (the default, inside facing the door), {@code cabindoor} (just outside the door), {@code village} (beside the square, facing it) {@code river}
      *        (at the nearest place to collect water, facing the water) or {@code cabinview} (in front of the
      *        cabin, facing it), {@code windowoutside}, {@code windowinside}, {@code villagehome} (looking at windows) or
-     *        {@code cabintable} (beside the cabin table)
+     *        {@code cabintable} (beside the cabin table) or {@code stove} (in front of the stove, facing it)
      * @return the spawn point
      */
     public static Spawn at(WorldData world, String name) {
@@ -39,6 +40,7 @@ public final class SpawnPoints {
             case "cabinview" -> cabinView(world);
             case "windowoutside" -> windowOutside(world);
             case "cabintable" -> cabinTable(world);
+            case "stove" -> stove(world);
             case "windowinside" -> windowInside(world);
             case "villagehome" -> villageHome(world);
             case "cabindoor" -> new Spawn(world.cabin().doorX(), world.cabin().doorZ(),
@@ -58,6 +60,18 @@ public final class SpawnPoints {
         var footprint = world.cabin().footprint();
         float[] spot = footprint.toWorld(TABLE_STAND_SIDE, TABLE_STAND_FORWARD);
         return new Spawn(spot[0], spot[1], footprint.yaw() + (float) (StrictMath.PI / 2.0));
+    }
+
+    /** Inside the cabin in front of the stove, facing it. */
+    private static Spawn stove(WorldData world) {
+        for (CabinLayout.Furnishing furnishing : CabinLayout.furnishings(world.cabin().footprint())) {
+            if ("stove".equals(furnishing.id())) {
+                float[] spot = CabinLayout.point(world.cabin(), furnishing.part().side(),
+                        furnishing.part().forward() + STOVE_STAND_DISTANCE);
+                return new Spawn(spot[0], spot[1], world.cabin().footprint().yaw() + (float) StrictMath.PI);
+            }
+        }
+        return inside(world);
     }
 
     /** Outside the cabin beside a window in its left wall, facing the window. */

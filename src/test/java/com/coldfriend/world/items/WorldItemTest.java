@@ -126,7 +126,7 @@ class WorldItemTest {
         Optional<Interactable> target = simulation.interactableFor(PlayerId.LOCAL);
         assertTrue(target.isPresent());
         assertEquals(InteractableKind.ITEM, target.get().kind());
-        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().id()));
+        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().ref()));
 
         assertTrue(result.success(), result.message());
         assertEquals(4, simulation.inventory(PlayerId.LOCAL).count(LOG));
@@ -163,7 +163,7 @@ class WorldItemTest {
         SimFixture.lookDown(simulation, DOWN);
         Interactable target = simulation.interactableFor(PlayerId.LOCAL).orElseThrow();
 
-        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.id()));
+        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.ref()));
 
         assertFalse(result.success());
         assertTrue(result.message().contains("full"));
@@ -187,7 +187,7 @@ class WorldItemTest {
         SimFixture.lookDown(simulation, DOWN);
         Interactable target = simulation.interactableFor(PlayerId.LOCAL).orElseThrow();
 
-        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.id()));
+        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.ref()));
 
         assertTrue(result.success(), result.message());
         assertEquals(10, inventory.count(LOG));
@@ -237,7 +237,7 @@ class WorldItemTest {
             } else {
                 SimFixture.lookDown(simulation, DOWN);
                 simulation.interactableFor(PlayerId.LOCAL).ifPresent(target ->
-                        simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.id())));
+                        simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.ref())));
             }
             SimFixture.walkForward(simulation, 0.02f);
         }

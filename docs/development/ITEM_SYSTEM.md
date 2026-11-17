@@ -40,7 +40,7 @@ All of this is in the `com.coldfriend.item` package. It has no engine types.
 | `drop` | Whether the player may drop it. |
 | `place` | Whether the player may place it deliberately. |
 | `placeRadius` | Metres a placed item blocks movement and other placements. `0` means it can be walked through. |
-| `useVerb` | What using it will be called ("Eat", "Drink"). Display only today; using items is not implemented. |
+| `useVerb` | What using it is called ("Eat", "Drink", "Fill"), shown as `[F] Eat` for the selected item. What using does is decided by item id in `world/SurvivalActions` (ration, water_container, water_container_empty); other items with a verb cannot be used yet. |
 
 ## Where the data lives
 

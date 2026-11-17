@@ -9,6 +9,7 @@ import com.coldfriend.input.GameplayInput;
 import com.coldfriend.interaction.ActionResult;
 import com.coldfriend.interaction.Interactable;
 import com.coldfriend.interaction.InteractableKind;
+import com.coldfriend.interaction.InteractableRef;
 import com.coldfriend.interaction.InteractionRequest;
 import com.coldfriend.inventory.Inventory;
 import com.coldfriend.item.ItemCatalog;
@@ -18,8 +19,11 @@ import com.coldfriend.player.PlayerId;
 import com.coldfriend.player.PlayerInput;
 import com.coldfriend.player.PlayerMovement;
 import com.coldfriend.player.PlayerState;
+import com.coldfriend.survival.HearthStatus;
 import com.coldfriend.ui.ShadowText;
+import com.coldfriend.ui.SurvivalHud;
 import com.coldfriend.world.SpawnPoints;
+import com.coldfriend.world.SurvivalActions;
 import com.coldfriend.world.WorldSimulation;
 import com.coldfriend.world.items.PlacementCheck;
 import com.coldfriend.world.items.PlacementValidator;
@@ -32,8 +36,6 @@ import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.BaseAppState;
 import com.jme3.font.BitmapFont;
-import com.jme3.light.AmbientLight;
-import com.jme3.light.DirectionalLight;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.post.FilterPostProcessor;
@@ -99,6 +101,8 @@ public final class WorldPlayState extends BaseAppState {
     private ShadowText crosshair;
     private ShadowText selectedText;
     private ShadowText toast;
+    private SurvivalHud survivalHud;
+    private SkyLighting sky;
     private boolean paused;
     private Footsteps footsteps;
     private Ambience ambience;
@@ -151,6 +155,7 @@ public final class WorldPlayState extends BaseAppState {
                 ambience.stop();
             }
         } else {
+            simulation.resetFrameTiming();
             gameplayInput.attach();
             gameplayInput.clear();
             if (ambience != null) {
@@ -201,11 +206,11 @@ public final class WorldPlayState extends BaseAppState {
     @Override
     protected void initialize(Application app) {
         SimpleApplication simple = (SimpleApplication) app;
-        simulation = new WorldSimulation(world, itemCatalog);
+        simulation = new WorldSimulation(world, itemCatalog, options.startMinute());
         player = simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, options.spawn()));
         scene = new WorldScene(world, catalog, app.getAssetManager());
-        scene.root().addLight(new AmbientLight(options.lighting().ambient()));
-        scene.root().addLight(new DirectionalLight(options.lighting().direction(), options.lighting().sun()));
+        sky = new SkyLighting(simulation.clockParameters());
+        sky.addTo(scene.root());
         itemsView = new WorldItemsView(catalog, itemCatalog);
         scene.root().attachChild(itemsView.root());
         preview = new PlacementPreview(app.getAssetManager());
@@ -221,7 +226,7 @@ public final class WorldPlayState extends BaseAppState {
             LOG.warn("Wind is unavailable; the game continues without it: {}", e.getMessage());
         }
         gameplayInput = new GameplayInput(simple.getInputManager());
-        fog = new FogFilter(options.lighting().sky(), FOG_DENSITY, FOG_DISTANCE);
+        fog = new FogFilter(sky.update(simulation.minuteOfDay()), FOG_DENSITY, FOG_DISTANCE);
         fogProcessor = new FilterPostProcessor(app.getAssetManager());
         fogProcessor.addFilter(fog);
         apply(navigator.currentSettings());
@@ -231,6 +236,7 @@ public final class WorldPlayState extends BaseAppState {
         crosshair.setText(CROSSHAIR);
         selectedText = hudText(font, HUD_SCALE);
         toast = hudText(font, PROMPT_SCALE);
+        survivalHud = new SurvivalHud(font);
         LOG.info("World ready to play: seed={} props={} items={} player at {},{} cabin at {},{}", world.seed(),
                 world.placements().size(), simulation.worldItems().size(), player.x(), player.z(),
                 world.cabin().footprint().x(), world.cabin().footprint().z());
@@ -244,11 +250,14 @@ public final class WorldPlayState extends BaseAppState {
         simple.getGuiNode().attachChild(crosshair);
         simple.getGuiNode().attachChild(selectedText);
         simple.getGuiNode().attachChild(toast);
-        simple.getViewPort().setBackgroundColor(options.lighting().sky());
+        simple.getGuiNode().attachChild(survivalHud.root());
+        survivalHud.refreshSoon();
+        updateLighting();
         simple.getViewPort().addProcessor(fogProcessor);
         Camera camera = simple.getCamera();
         camera.setFrustumPerspective(FOV_DEGREES, (float) camera.getWidth() / camera.getHeight(), NEAR, FAR);
         paused = false;
+        simulation.resetFrameTiming();
         if (ambience != null) {
             ambience.start();
         }
@@ -269,6 +278,7 @@ public final class WorldPlayState extends BaseAppState {
         crosshair.removeFromParent();
         selectedText.removeFromParent();
         toast.removeFromParent();
+        survivalHud.root().removeFromParent();
         scene.detach();
         if (ambience != null) {
             ambience.stop();
@@ -297,6 +307,8 @@ public final class WorldPlayState extends BaseAppState {
         crosshair = null;
         selectedText = null;
         toast = null;
+        survivalHud = null;
+        sky = null;
     }
 
     @Override
@@ -319,7 +331,9 @@ public final class WorldPlayState extends BaseAppState {
         simulation.update(tpf, Map.of(PlayerId.LOCAL, input));
         playFootsteps(input);
         scene.setCabinDoorOpen(simulation.isCabinDoorOpen());
+        scene.setCabinFireLevel((float) simulation.hearthLevel());
         scene.animate(tpf);
+        updateLighting();
         itemsView.sync(simulation.worldItems());
         followPlayer(camera);
         if (placingSlot != NO_SLOT) {
@@ -328,7 +342,18 @@ public final class WorldPlayState extends BaseAppState {
             showPrompt(camera);
         }
         updateHud(tpf, camera);
+        if (survivalHud.due(tpf)) {
+            survivalHud.show(simulation.day(), simulation.minuteOfDay(), simulation.phase(),
+                    simulation.survival(PlayerId.LOCAL), simulation.hearth(), camera.getWidth(), camera.getHeight());
+        }
         runScenario(tpf);
+    }
+
+    /** Sets the sky, sun, ambient light and fog colour for the current game time. */
+    private void updateLighting() {
+        ColorRGBA skyColor = sky.update(simulation.minuteOfDay());
+        ((SimpleApplication) getApplication()).getViewPort().setBackgroundColor(skyColor);
+        fog.setFogColor(skyColor);
     }
 
     /** @return false if the screen changed and this frame should stop here */
@@ -356,9 +381,12 @@ public final class WorldPlayState extends BaseAppState {
         if (gameplayInput.consumePlace()) {
             startPlacement(inventory.selected());
         }
+        if (gameplayInput.consumeUse() && inventory.selectedStack().isPresent()) {
+            showToast(simulation.useItem(PlayerId.LOCAL, inventory.selected()).message());
+        }
         Optional<Interactable> target = simulation.interactableFor(PlayerId.LOCAL);
         if (gameplayInput.consumeInteract() && target.isPresent()) {
-            showToast(simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().id())).message());
+            showToast(simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().ref())).message());
         }
         gameplayInput.consumeRotate();
         gameplayInput.consumeConfirm();
@@ -370,6 +398,7 @@ public final class WorldPlayState extends BaseAppState {
     private void handlePlacementInput() {
         gameplayInput.consumeInventory();
         gameplayInput.consumeInteract();
+        gameplayInput.consumeUse();
         gameplayInput.consumeDrop();
         gameplayInput.consumePlace();
         gameplayInput.consumeSlot();
@@ -446,21 +475,33 @@ public final class WorldPlayState extends BaseAppState {
             return;
         }
         if (target.get().kind() == InteractableKind.ITEM) {
-            prompt.setText("[E] Pick up " + describeItem(target.get().id()));
+            prompt.setText("[E] Pick up " + describeItem(target.get().ref()));
+        } else if (target.get().kind() == InteractableKind.HEARTH) {
+            prompt.setText(stovePrompt());
         } else {
             prompt.setText(simulation.isCabinDoorOpen() ? "[E] Close the door" : "[E] Open the door");
         }
         centrePrompt(camera);
     }
 
-    private String describeItem(String interactableId) {
+    private String describeItem(InteractableRef ref) {
         for (WorldItem item : simulation.worldItems()) {
-            if ((WorldSimulation.ITEM_PREFIX + item.id()).equals(interactableId)) {
+            if (InteractableRef.item(item.id()).equals(ref)) {
                 String name = itemCatalog.get(item.stack().item()).name();
                 return item.stack().quantity() > 1 ? name + " x" + item.stack().quantity() : name;
             }
         }
         return "item";
+    }
+
+    /** The prompt at the stove; the simulation decides what E actually does, this only describes it. */
+    private String stovePrompt() {
+        HearthStatus hearth = simulation.hearth();
+        if (!hearth.state().lit() && hearth.fuel() > 0) {
+            return "[E] Light the stove";
+        }
+        int wood = simulation.inventory(PlayerId.LOCAL).count(SurvivalActions.FIREWOOD);
+        return wood > 0 ? "[E] Add firewood (" + wood + " left)" : "Stove: you have no firewood";
     }
 
     private void centrePrompt(Camera camera) {
@@ -473,6 +514,7 @@ public final class WorldPlayState extends BaseAppState {
         Optional<ItemStack> held = inventory.selectedStack();
         String text = held.map(stack -> "[" + (inventory.selected() + 1) + "] " + itemCatalog.get(stack.item()).name()
                 + (stack.quantity() > 1 ? " x" + stack.quantity() : "")
+                + useHint(itemCatalog.get(stack.item()))
                 + "     [I] Inventory   [Q] Drop   [P] Place")
                 .orElse("[" + (inventory.selected() + 1) + "] empty     [I] Inventory");
         selectedText.setText(text);
@@ -485,6 +527,10 @@ public final class WorldPlayState extends BaseAppState {
                 toast.setText("");
             }
         }
+    }
+
+    private static String useHint(ItemDefinition definition) {
+        return definition.useVerb().isEmpty() ? "" : "   [F] " + definition.useVerb();
     }
 
     private void showToast(String message) {
@@ -536,9 +582,16 @@ public final class WorldPlayState extends BaseAppState {
                 camera.getHeight() / 2f + crosshair.lineHeight() / 2f, 0f);
     }
 
-    /** Moves the camera to the player's eyes and points it where they look. */
+    /**
+     * Moves the camera to the player's eyes and points it where they look. The simulation moves the player in
+     * fixed steps, so the eye is blended between the last two steps to stay smooth at any frame rate.
+     */
     private void followPlayer(Camera camera) {
-        camera.setLocation(new Vector3f(player.x(), player.y() + EYE_HEIGHT, player.z()));
+        float a = simulation.interpolation();
+        float x = player.previousX() + (player.x() - player.previousX()) * a;
+        float y = player.previousY() + (player.y() - player.previousY()) * a;
+        float z = player.previousZ() + (player.z() - player.previousZ()) * a;
+        camera.setLocation(camera.getLocation().set(x, y + EYE_HEIGHT, z));
         float cosPitch = (float) Math.cos(player.pitch());
         camera.lookAtDirection(new Vector3f(
                 (float) Math.sin(player.yaw()) * cosPitch,

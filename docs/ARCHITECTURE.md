@@ -20,7 +20,7 @@ Versions are pinned in `gradle.properties`.
 |---|---|---|
 | `com.coldfriend` (`Main`) | Process entry point: loads config, starts the app | Implemented |
 | `core` | Application root (`GameApp`), config, settings model and persistence, display mapping | Implemented |
-| `state` | Screen states: menu backdrop, main menu, settings; navigation interface | Implemented |
+| `state` | Screen states: menu backdrop, main menu, settings, pause, world play, inventory; navigation interface; sky lighting from the clock | Implemented |
 | `input` | Central mapping from keys and mouse to `GameAction`, input ownership | Implemented |
 | `ui` | Menu model (pure logic) and menu view (text rendering, hit testing) | Implemented |
 | `environment` | Procedural menu scene: ground, trees, cabin, snow, camera sway (fog is applied by `state/BackdropState`); terrain and water rendering (`TerrainMeshBuilder`, `WaterView`) | Implemented |
@@ -28,12 +28,15 @@ Versions are pinned in `gradle.properties`.
 | `world.model` | Generated world data with no engine types: terrain, rivers, regions, scenery, cabin, village, paths, locations | Implemented |
 | `world.query` | Walkability rules, collision, grid navigation | Implemented |
 | `world.render` | Terrain, water, instanced scenery, cabin and village drawing | Implemented |
-| `world` | `WorldSimulation` (authoritative state), spawn points; seeded terrain and water bodies (rivers, lakes, ice) with analytic queries | Implemented |
+| `world` | `WorldSimulation` (authoritative state, fixed 20 Hz steps via `FixedStep`), spawn points, survival actions; seeded terrain and water bodies (rivers, lakes, ice) with analytic queries | Implemented |
+| `time` | Game clock (`WorldClock`), day phases, clock tuning; no engine types | Implemented |
+| `survival` | A player's needs (`Survival`) and the stove (`Hearth`), with tuning records and read-only snapshots; no engine types | Implemented (Phase A) |
 | `player` | Player identity, state, input and movement, no engine types | Implemented |
-| `interaction` | Interactables and interaction requests | Implemented (door only) |
+| `interaction` | Interactables, `InteractableRef` identity, interaction requests | Implemented (door, items, stove) |
 | `assets` | Prop kinds, prop catalogue, model loading | Implemented |
-| `audio` | Playback and mixing | Planned |
-| `survival`, `creature`, `inventory`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
+| `audio` | Footsteps (WAV), generated wind | Partial |
+| `inventory`, `item` | Inventory slots; item definitions from `config/items.properties` | Implemented |
+| `creature`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
 | `dev` | Developer tools, e.g. `WorldPreviewApp` (`./gradlew worldPreview`) | Implemented |
 
 ## Dependency direction
@@ -87,7 +90,8 @@ Format: Java `.properties`. See `docs/DECISIONS.md` for why JSON or YAML were no
 
 ## Known gaps
 
-- No audio playback, so volume settings are stored but not applied.
+- Audio is partial: footsteps and wind only. No fire or creature sounds.
+- No death or restart flow beyond a message; no saving.
 - Restarting the display on resolution, fullscreen or vsync change has been designed but must be checked on the target machine (see README verification notes).
 
 ## Layers and multiplayer

@@ -105,3 +105,52 @@ Each entry: the decision, why, and what was considered. Entries marked **Open** 
 **Missing assets:** only `stone` has a model. Other items draw as a magenta cube until models are approved. No icons exist; the inventory draws a coloured square with the item's first letter.
 **Development aids:** `dev.time` (day, dusk, night), `dev.scenario` (inventory, drop, placement) and more `dev.spawn` values let screenshots show these without sending keyboard or mouse input.
 
+## D-027: The simulation advances in fixed 20 Hz steps; excess frame time is dropped
+
+**Decision:** `WorldSimulation.update(frameSeconds, inputs)` gives the frame time to `FixedStep`, which counts whole nanoseconds and runs whole steps of 0.05 s. At most five steps run per update; time owed beyond that is dropped and counted. Mouse look is applied once per frame, outside the steps. Pausing stops calling `update`; resuming calls `resetFrameTiming()`. The camera blends between the last two player positions.
+**Why:** gameplay (movement, clock, fire, needs, and later the creature) must not depend on the frame rate, and a future server needs one tick rate. Dropping excess time avoids the spiral where a slow frame makes the next ones slower.
+**Alternatives:** keep frame time and scale every rate (rejected: tuning would depend on the machine); catch up without a cap (rejected: bursts after a stall); a separate simulation thread (rejected: not needed).
+**Status:** implemented in Milestone 04 Phase A, with tests. Supersedes the per-frame movement described in D-014.
+
+## D-028: Game time lives in a `time` package; the simulation owns the only clock
+
+**Decision:** `time.WorldClock` counts simulation steps and gives the day, the minute of the day and the `DayPhase`. One in-game day is 20 real minutes; dawn 05:30, day 07:00, dusk 17:00, night 19:30; new games start at 07:00 on day 1 (`ClockParameters.DEFAULT`). Lighting follows the clock. `dev.time` now sets the start time, not a lighting mode.
+**Why:** the clock must be the authoritative source of game time. It sits in its own package, not in `survival` as the plan proposed, so that `world` → `survival` → `time` has no cycle and the creature can use it later.
+**Status:** implemented; the day length is the proposed default and still an open owner decision (see the roadmap).
+
+## D-029: Survival is four needs with health falling only while a need is critical
+
+**Decision:** each player has warmth, nourishment, hydration and health (`survival.Survival`), from 0 to 100. Warmth moves toward a target set by inside or outside, the time of day, wading and the hearth. Nourishment and hydration fall per in-game day. Health falls only while one or more of the others is below its critical level, faster with two; every need passes a warning level first. Values are in `SurvivalParameters.DEFAULT`. No stamina, sickness, sleep or weather.
+**Why:** the minimal set that gives decisions (the fire, the river, the cold) without chores, and death that is always preceded by a visible warning.
+**Status:** implemented. The rates are the design's proposals and need playtesting; outside at night is currently harsh (critical warmth in about 25 real seconds).
+
+## D-030: The hearth is simulation state; drawing reads it
+
+**Decision:** `survival.Hearth` holds the stove's fuel (fuel-hours) and state (unlit, burning, embers, out). Level is fuel × 0.15, capped at 0.9; a lit fire burns its level per hour (at least 0.1). Embers below 0.15; out 30 game minutes after the fuel is gone. A new world starts lit with 3 fuel-hours. E at the stove adds one firewood, or lights a cold stove with matches and one branch. The room light and the stove's glowing door in `CabinView` follow the level.
+**Why:** the fire is the central survival mechanic and must be authoritative and testable without rendering.
+**Deviations from the design:** the box of matches is not used up (the item is one box; counting matches would need item durability); start fuel is 3, not 2, because 2 sits exactly on the strong-heat threshold.
+**Status:** implemented with tests.
+
+## D-031: Interactables are identified by `InteractableRef`, built on `EntityId`
+
+**Decision:** `InteractableRef(kind, number)` replaces string ids. Fixed parts have constants (`CABIN_DOOR`, `CABIN_HEARTH`); items use `InteractableRef.item(EntityId)`. `InteractionRequest` carries a ref. The old `"item:<id>"` strings and `WorldSimulation.CABIN_DOOR_ID` are gone.
+**Why:** strings had to be parsed back into numbers and could drift from presentation. A record gives correct equality and hashing, and items keep their single identity, `EntityId`.
+**Status:** implemented with tests.
+
+## D-032: Gameplay tuning lives in `*Parameters.DEFAULT` records
+
+**Decision:** clock, survival and hearth values are in `ClockParameters.DEFAULT`, `SurvivalParameters.DEFAULT` and `HearthParameters.DEFAULT`. `config/game.properties` keeps display, menu and `dev.*` keys only. Item data stays in `config/items.properties` (a new `water_container_empty` item was added there).
+**Why:** these values are game balance; editing them in a file would silently change behaviour, the same reason D-012 keeps generation parameters in code. Tests refer to them by name.
+**Status:** implemented. Revisit if the owner wants to tune without rebuilding.
+
+## D-033: Item use is a simulation request keyed by item id; F uses the selected item
+
+**Decision:** `WorldSimulation.useItem(player, slot)` handles eating (`ration`), drinking (`water_container`, which becomes `water_container_empty`) and filling an empty container at open water (at the feet or 1.2 m ahead). Each action checks first and changes nothing if it fails. The F key sends the request; the HUD shows `[F]` with the item's `useVerb`.
+**Why:** the player needs a way to eat and drink, and the transfer must be all or nothing. Filling anywhere there is water is simpler than only at `WATER_ACCESS` points, which the design proposed.
+**Status:** implemented with tests.
+
+## D-034: One canonical decision log
+
+**Decision:** this file, `docs/DECISIONS.md`, is the decision log. `docs/development/DECISIONS.md` is a summary table whose IDs D-012 to D-026 mean different things from the entries here; it is kept for reference and no longer receives new decisions. New decisions start at D-027 here so no ID means two things.
+**Why:** two logs with clashing numbers made references ambiguous.
+**Status:** done. Merging the summary table's rows into this file is left for a later clean-up.

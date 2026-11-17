@@ -96,6 +96,11 @@ public final class WorldScene {
         cabin.setDoorOpen(open);
     }
 
+    /** @param level the cabin stove fire's level from the simulation; 0 when it is not lit */
+    public void setCabinFireLevel(float level) {
+        cabin.setFireLevel(level);
+    }
+
     /**
      * Plays animations: the door swinging and the firelight flickering.
      *

@@ -16,13 +16,17 @@ Based on the repository as it stands. Labels: **Completed** (built and tested or
 | First-person movement rules | `PlayerMovementTest` |
 | Prop catalogue with model loading and fallbacks | Runs; models shown in the showcase |
 | Models loaded in the world: trees, rocks, bushes | Runs at launch with the catalogue |
+| Items, inventory, dropping, picking up, placing | `InventoryTest`, `WorldItemTest`, `ObjectPlacementTest` |
+| Fixed-step simulation (20 Hz), game clock, day and night lighting | `FixedStepTest`, `WorldClockTest`; night lighting seen in a screenshot (Milestone 04 Phase A) |
+| Needs (warmth, food, water, health) and the stove (fuel, embers, out, lighting) | `SurvivalTest`, `HearthTest`, `SurvivalSimulationTest`; HUD and stove glow seen in screenshots |
 
 ## Partial
 
 | Area | What works | What is missing |
 |---|---|---|
 | Cabin | Layout, doorway, door opens and is drawn | Not yet playtested end to end. Check in-game that the prompt appears at the door and E opens it. |
-| Interaction | Prompt, E key, `InteractionRequest` and the simulation's door logic are wired | Only the cabin door is an interactable; no other interactions |
+| Interaction | E uses the door, world items and the stove; F uses the selected item (eat, drink, fill). Identity is `InteractableRef` | Not playtested by hand end to end |
+| Survival loop | Clock, needs, stove, eating, drinking, filling water, death message | Rates not playtested; no restart flow, no firewood gathering, no chimney, no sounds for the fire |
 | World quality | Worlds generate and validate | The owner has not approved how the worlds look |
 | Models | Trees, rocks, bushes, cabin walls in use | No fallen logs; no approved hut; characters are placeholders |
 | Asset manifest and licences | Recorded for everything in use | Some textures' licences are unconfirmed (the Retro houses) |
@@ -30,8 +34,7 @@ Based on the repository as it stands. Labels: **Completed** (built and tested or
 ## Not implemented
 
 - **Audio beyond footsteps:** wind, fire, creature cues, music, positional audio and a full mixer. Footsteps on snow are wired (WAV only). See `docs/audio/AUDIO_DESIGN.md`.
-- **Survival:** warmth, food, health, the fire's fuel and its going out.
-- **Inventory and items:** packages are placeholders.
+- **Survival beyond Phase A:** gathering firewood (felling trees), the chimney, death and restart, the seven-day structure. See `SURVIVAL_GAMEPLAY_ROADMAP.md`.
 - **Narrative:** notes and storytelling; package is a placeholder.
 - **Creature:** behaviour, perception and cues; package is a placeholder.
 - **Save and load:** worlds are regenerated from their seed each time.
@@ -66,4 +69,4 @@ The intended order (from the design) is:
 
 ## Next recommended step
 
-Make the first playable slice: spawn in the cabin, walk out through the door, see the forest, and return. That needs the owner to confirm the cabin's door behaviour and the look of the generated world. No new systems are needed for that slice.
+Playtest Phase A by hand (feed and relight the stove, eat, drink, fill at the river, pause and resume, die of cold, watch a full day) and tune `SurvivalParameters` and `HearthParameters`. Then start Phase B (creature perception and memory) as planned in `SURVIVAL_GAMEPLAY_ROADMAP.md`. Owner decisions on day length and the fire (items 1 and 2 above) are now implemented with the proposed defaults and should be confirmed.

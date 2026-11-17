@@ -251,7 +251,7 @@ class ObjectPlacementTest {
         SimFixture.lookDown(simulation, 0.8f);
 
         Interactable target = simulation.interactableFor(PlayerId.LOCAL).orElseThrow();
-        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.id()));
+        ActionResult result = simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.ref()));
 
         assertTrue(result.success(), result.message());
         assertEquals(1, simulation.inventory(PlayerId.LOCAL).count(LOG));

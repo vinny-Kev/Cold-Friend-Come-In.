@@ -12,6 +12,9 @@ public final class PlayerState {
     private float z;
     private float yaw;
     private float pitch;
+    private float previousX;
+    private float previousY;
+    private float previousZ;
 
     /**
      * @param id the player's identity
@@ -26,6 +29,7 @@ public final class PlayerState {
         this.y = y;
         this.z = z;
         this.yaw = yaw;
+        beginStep();
     }
 
     /** @return the player's identity */
@@ -56,6 +60,27 @@ public final class PlayerState {
     /** @return look angle in radians; positive looks up */
     public float pitch() {
         return pitch;
+    }
+
+    /** @return world x at the start of the last simulation step; drawing blends from here to {@link #x()} */
+    public float previousX() {
+        return previousX;
+    }
+
+    /** @return feet height at the start of the last simulation step */
+    public float previousY() {
+        return previousY;
+    }
+
+    /** @return world z at the start of the last simulation step */
+    public float previousZ() {
+        return previousZ;
+    }
+
+    void beginStep() {
+        previousX = x;
+        previousY = y;
+        previousZ = z;
     }
 
     void setPosition(float newX, float newY, float newZ) {

@@ -5,5 +5,7 @@ public enum InteractableKind {
     /** A door that opens and closes. */
     DOOR,
     /** An item lying or placed in the world, which can be picked up. */
-    ITEM
+    ITEM,
+    /** A stove or fireplace that burns fuel. */
+    HEARTH
 }

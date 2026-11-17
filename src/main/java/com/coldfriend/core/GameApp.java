@@ -6,7 +6,6 @@ import com.coldfriend.item.ItemCatalog;
 import com.coldfriend.player.PlayerId;
 import com.coldfriend.state.BackdropState;
 import com.coldfriend.state.InventoryState;
-import com.coldfriend.state.LightingProfile;
 import com.coldfriend.state.MainMenuState;
 import com.coldfriend.state.PauseState;
 import com.coldfriend.state.PlayOptions;
@@ -23,6 +22,7 @@ import com.jme3.asset.plugins.FileLocator;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.OptionalInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -228,13 +228,25 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
             backdropState.setEnabled(false);
             worldState = new WorldPlayState(world, catalog, items, this, new PlayOptions(
                     config.optionalString(SPAWN_KEY).orElse("cabin"),
-                    LightingProfile.parse(config.optionalString(TIME_KEY).orElse("dusk")),
+                    startMinute(),
                     config.optionalString(SCENARIO_KEY).orElse("")));
             stateManager.attach(worldState);
         } catch (IOException | RuntimeException e) {
             LOG.error("Could not start a new game with seed {}", seed, e);
             showMainMenu();
         }
+    }
+
+    /** @return the start time from {@code dev.time}, or the normal new-game time if it is blank or not understood */
+    private int startMinute() {
+        int normal = PlayOptions.NORMAL.startMinute();
+        return config.optionalString(TIME_KEY).map(value -> {
+            OptionalInt parsed = PlayOptions.parseStartTime(value);
+            if (parsed.isEmpty()) {
+                LOG.warn("Unknown dev.time '{}'; starting at the normal time", value);
+            }
+            return parsed.orElse(normal);
+        }).orElse(normal);
     }
 
     @Override
