@@ -109,6 +109,8 @@ public final class WorldPlayState extends BaseAppState {
     private SurvivalHud survivalHud;
     private final IconCatalog icons;
     private HotbarView hotbar;
+    private float hotbarWidth = -1f;
+    private float hotbarHeight = -1f;
     private CreatureDebugView creatureView;
     private ShadowText creatureText;
     private SkyLighting sky;
@@ -373,8 +375,12 @@ public final class WorldPlayState extends BaseAppState {
             showPrompt(camera);
         }
         updateHud(tpf, camera);
-        hotbar.layout(camera.getWidth(), camera.getHeight());
         hotbar.refresh(simulation.inventory(PlayerId.LOCAL));
+        if (camera.getWidth() != hotbarWidth || camera.getHeight() != hotbarHeight) {
+            hotbarWidth = camera.getWidth();
+            hotbarHeight = camera.getHeight();
+            hotbar.layout(hotbarWidth, hotbarHeight);
+        }
         if (creatureView != null) {
             showCreature(camera);
         }
@@ -430,7 +436,7 @@ public final class WorldPlayState extends BaseAppState {
         }
         Inventory inventory = simulation.inventory(PlayerId.LOCAL);
         int slot = gameplayInput.consumeSlot();
-        if (slot >= 0 && slot < inventory.size()) {
+        if (slot >= 0 && slot < Inventory.HOTBAR_SLOTS) {
             inventory.select(slot);
         }
         if (gameplayInput.consumeDrop()) {
