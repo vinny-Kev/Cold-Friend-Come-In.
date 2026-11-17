@@ -26,6 +26,7 @@ dependencies {
     implementation "org.jmonkeyengine:jme3-desktop:${jmeVersion}"
     implementation "org.jmonkeyengine:jme3-lwjgl3:${jmeVersion}"
     implementation "org.jmonkeyengine:jme3-effects:${jmeVersion}"
+    implementation "org.jmonkeyengine:jme3-plugins:${jmeVersion}"
     implementation "org.slf4j:slf4j-api:${slf4jVersion}"
     runtimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
 
@@ -36,6 +37,15 @@ dependencies {
 
 application {
     mainClass = 'com.coldfriend.Main'
+}
+
+// Temporary developer tool: shows every model side by side. Remove when no longer needed.
+tasks.register('showcase', JavaExec) {
+    group = 'verification'
+    description = 'Temporary: shows all placed assets side by side.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.coldfriend.dev.AssetShowcase'
+    workingDir = projectDir
 }
 
 test {

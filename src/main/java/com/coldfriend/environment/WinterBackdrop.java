@@ -1,6 +1,8 @@
 package com.coldfriend.environment;
 
+import com.coldfriend.core.Intensity;
 import com.jme3.asset.AssetManager;
+import com.jme3.effect.ParticleEmitter;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.PointLight;
@@ -59,6 +61,8 @@ public final class WinterBackdrop {
     private final Vector3f cameraPosition = new Vector3f();
     private final Vector3f cameraFocus = new Vector3f(0f, CAMERA_FOCUS_Y, CABIN_Z);
     private Camera camera;
+    private ParticleEmitter snow;
+    private boolean swayEnabled = true;
     private float cameraPhase;
 
     /**
@@ -102,7 +106,7 @@ public final class WinterBackdrop {
      * @param tpf seconds since the previous frame
      */
     public void update(float tpf) {
-        if (camera == null) {
+        if (camera == null || !swayEnabled) {
             return;
         }
         cameraPhase += tpf * settings.cameraDriftSpeed();
@@ -167,7 +171,33 @@ public final class WinterBackdrop {
     }
 
     private void buildSnowfall() {
-        scene.attachChild(SnowfallEffect.create(assets, SNOW_TEXTURE, settings.snowParticleCount()));
+        int room = Math.round(settings.snowParticleCount() * Intensity.HEAVY.factor());
+        snow = SnowfallEffect.create(assets, SNOW_TEXTURE, Math.max(1, room));
+        scene.attachChild(snow);
+    }
+
+    /**
+     * Changes how much snow falls, immediately.
+     *
+     * @param amount the snow level; the configured particle count is the {@code NORMAL} amount
+     */
+    public void setSnow(Intensity amount) {
+        SnowfallEffect.setAmount(snow, settings.snowParticleCount(), amount.factor());
+    }
+
+    /**
+     * Turns the slow camera sway on or off, immediately. Off returns the camera to the centre.
+     *
+     * @param enabled whether the camera sways
+     */
+    public void setSway(boolean enabled) {
+        swayEnabled = enabled;
+        if (!enabled) {
+            cameraPhase = 0f;
+            if (camera != null) {
+                updateCamera();
+            }
+        }
     }
 
     private Material litMaterial(ColorRGBA color) {

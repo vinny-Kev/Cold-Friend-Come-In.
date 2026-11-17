@@ -1,5 +1,6 @@
 package com.coldfriend.state;
 
+import com.coldfriend.core.GameSettings;
 import com.coldfriend.environment.BackdropSettings;
 import com.coldfriend.environment.WinterBackdrop;
 import com.jme3.app.Application;
@@ -22,27 +23,52 @@ public final class BackdropState extends BaseAppState {
     /** Overcast sky colour; the background and the colour distant geometry fades into. */
     private static final ColorRGBA SKY_COLOR = new ColorRGBA(0.52f, 0.58f, 0.66f, 1f);
     private static final ColorRGBA DIM_COLOR = new ColorRGBA(0f, 0f, 0f, 0.45f);
-    /** shortcut: fixed fog tuning, not yet in config/game.properties; move there when tuning is needed. */
+    /** Fog density at the Normal level; the player's fog setting scales it. */
     private static final float FOG_DENSITY = 1.0f;
     private static final float FOG_DISTANCE = 120f;
 
     private final BackdropSettings settings;
+    private GameSettings player;
     private WinterBackdrop backdrop;
+    private FogFilter fog;
     private FilterPostProcessor fogProcessor;
     private Geometry dimmer;
     private float dimmerWidth = -1f;
     private float dimmerHeight = -1f;
 
-    /** @param settings tuning values for the backdrop */
-    public BackdropState(BackdropSettings settings) {
+    /**
+     * @param settings tuning values for the backdrop
+     * @param player the player's backdrop preferences at start-up
+     */
+    public BackdropState(BackdropSettings settings, GameSettings player) {
         this.settings = settings;
+        this.player = player;
+    }
+
+    /**
+     * Applies the player's fog, snow and camera sway preferences, immediately.
+     *
+     * @param updated the settings now in effect
+     */
+    public void apply(GameSettings updated) {
+        player = updated;
+        if (backdrop == null) {
+            return;
+        }
+        float factor = updated.fog().factor();
+        fog.setFogDensity(FOG_DENSITY * factor);
+        fog.setEnabled(factor > 0f);
+        backdrop.setSnow(updated.snow());
+        backdrop.setSway(updated.cameraSway());
     }
 
     @Override
     protected void initialize(Application app) {
         backdrop = new WinterBackdrop(app.getAssetManager(), settings);
+        fog = new FogFilter(SKY_COLOR, FOG_DENSITY, FOG_DISTANCE);
         fogProcessor = new FilterPostProcessor(app.getAssetManager());
-        fogProcessor.addFilter(new FogFilter(SKY_COLOR, FOG_DENSITY, FOG_DISTANCE));
+        fogProcessor.addFilter(fog);
+        apply(player);
         Material dimMaterial = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
         dimMaterial.setColor("Color", DIM_COLOR);
         dimMaterial.getAdditionalRenderState().setBlendMode(RenderState.BlendMode.Alpha);
@@ -53,6 +79,7 @@ public final class BackdropState extends BaseAppState {
     @Override
     protected void cleanup(Application app) {
         backdrop = null;
+        fog = null;
         fogProcessor = null;
         dimmer = null;
     }

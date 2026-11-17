@@ -99,6 +99,10 @@ public final class InputController {
                 new KeyTrigger(KeyInput.KEY_RETURN), new KeyTrigger(KeyInput.KEY_SPACE)};
             case MENU_BACK -> new Trigger[] {new KeyTrigger(KeyInput.KEY_ESCAPE)};
             case MENU_CLICK -> new Trigger[] {new MouseButtonTrigger(MouseInput.BUTTON_LEFT)};
+            case INVENTORY_TOGGLE -> new Trigger[] {new KeyTrigger(KeyInput.KEY_I), new KeyTrigger(KeyInput.KEY_TAB)};
+            case INVENTORY_DROP -> new Trigger[] {new KeyTrigger(KeyInput.KEY_Q)};
+            case INVENTORY_DROP_ALL -> new Trigger[] {new KeyTrigger(KeyInput.KEY_X)};
+            case INVENTORY_PLACE -> new Trigger[] {new KeyTrigger(KeyInput.KEY_P)};
         };
     }
 }
