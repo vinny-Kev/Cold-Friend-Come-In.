@@ -1,9 +1,11 @@
 package com.coldfriend.core;
 
+import com.coldfriend.environment.BackdropSettings;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Properties;
 
 /**
@@ -52,6 +54,15 @@ public final class GameConfig {
             throw new IllegalStateException("Missing config key: " + key);
         }
         return value;
+    }
+
+    /**
+     * @param key the key to look up
+     * @return the value, or empty if the key is missing or blank
+     */
+    public Optional<String> optionalString(String key) {
+        String value = properties.getProperty(key);
+        return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.trim());
     }
 
     public int getInt(String key) {
@@ -103,6 +114,30 @@ public final class GameConfig {
                 getInt("settings.default.sfxVolume"),
                 getResolution("settings.default.resolution"),
                 getBoolean("settings.default.fullscreen"),
-                getBoolean("settings.default.vsync"));
+                getBoolean("settings.default.vsync"),
+                getIntensity("settings.default.fog"),
+                getIntensity("settings.default.snow"),
+                getBoolean("settings.default.cameraSway"));
+    }
+
+    /**
+     * Builds the menu backdrop tuning from the {@code menu.*} keys.
+     *
+     * @return backdrop settings
+     */
+    public BackdropSettings backdropSettings() {
+        return new BackdropSettings(
+                getInt("menu.treeCount"),
+                getInt("menu.snowParticleCount"),
+                getFloat("menu.cameraDriftSpeed"),
+                getFloat("menu.cameraDriftRadius"));
+    }
+
+    public Intensity getIntensity(String key) {
+        try {
+            return Intensity.parse(getString(key));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Config key " + key + " is not off, light, normal or heavy", e);
+        }
     }
 }

@@ -41,7 +41,12 @@ public final class Main {
 
     private static GameConfig loadConfig() {
         try {
-            return GameConfig.load(CONFIG_FILE);
+            GameConfig config = GameConfig.load(CONFIG_FILE);
+            // Read every start-up value now, so a typo fails here with a clear message instead of later.
+            config.getString("window.title");
+            config.defaultSettings();
+            config.backdropSettings();
+            return config;
         } catch (IOException | IllegalStateException e) {
             LOG.error("Cannot load configuration from {}: {}", CONFIG_FILE.toAbsolutePath(), e.getMessage(), e);
             System.exit(EXIT_CONFIG_ERROR);

@@ -18,7 +18,7 @@ public final class MainMenuState extends MenuScreenState {
     private static final Logger LOG = LoggerFactory.getLogger(MainMenuState.class);
     private static final String FONT_PATH = "Interface/Fonts/Default.fnt";
     private static final String TITLE = "COLD FRIEND, COME IN.";
-    private static final String NEW_GAME_STATUS = "Gameplay is not implemented yet.";
+    private static final String NEW_GAME_STATUS = "Generating world...";
     private static final float TITLE_SCALE = 4f;
     private static final float ITEM_SCALE = 2f;
     private static final float STATUS_SCALE = 1.5f;
@@ -29,6 +29,7 @@ public final class MainMenuState extends MenuScreenState {
     private static final ColorRGBA STATUS_COLOR = new ColorRGBA(0.75f, 0.82f, 0.9f, 1f);
     private static final ColorRGBA TITLE_COLOR = new ColorRGBA(0.92f, 0.95f, 1f, 1f);
 
+    private final ScreenNavigator navigator;
     private BitmapText titleText;
     private BitmapText statusText;
 
@@ -38,6 +39,7 @@ public final class MainMenuState extends MenuScreenState {
      */
     public MainMenuState(ScreenNavigator navigator, InputController input) {
         super("main-menu", input);
+        this.navigator = navigator;
         this.model = new MenuModel(List.of(
                 MenuItem.action("New Game", this::startNewGame),
                 MenuItem.disabled("Continue"),
@@ -94,8 +96,9 @@ public final class MainMenuState extends MenuScreenState {
     }
 
     private void startNewGame() {
-        LOG.info("New Game selected; gameplay is not implemented in this milestone");
+        LOG.info("New Game selected");
         statusText.setText(NEW_GAME_STATUS);
         relayout();
+        navigator.startNewGame();
     }
 }

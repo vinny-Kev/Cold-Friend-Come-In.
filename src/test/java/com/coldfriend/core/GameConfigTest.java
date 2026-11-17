@@ -25,11 +25,15 @@ class GameConfigTest {
                 "settings.default.sfxVolume", "60",
                 "settings.default.resolution", "1600x900",
                 "settings.default.fullscreen", "false",
-                "settings.default.vsync", "true");
+                "settings.default.vsync", "true",
+                "settings.default.fog", "heavy",
+                "settings.default.snow", "Off",
+                "settings.default.cameraSway", "false");
 
         GameSettings defaults = config.defaultSettings();
 
-        assertEquals(new GameSettings(80, 70, 60, new Resolution(1600, 900), false, true), defaults);
+        assertEquals(new GameSettings(80, 70, 60, new Resolution(1600, 900), false, true,
+                Intensity.HEAVY, Intensity.OFF, false), defaults);
     }
 
     @Test

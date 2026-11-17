@@ -1,0 +1,549 @@
+package com.coldfriend.state;
+
+import com.coldfriend.assets.PropCatalog;
+import com.coldfriend.audio.Ambience;
+import com.coldfriend.audio.Footsteps;
+import com.coldfriend.audio.StepCounter;
+import com.coldfriend.core.GameSettings;
+import com.coldfriend.input.GameplayInput;
+import com.coldfriend.interaction.ActionResult;
+import com.coldfriend.interaction.Interactable;
+import com.coldfriend.interaction.InteractableKind;
+import com.coldfriend.interaction.InteractionRequest;
+import com.coldfriend.inventory.Inventory;
+import com.coldfriend.item.ItemCatalog;
+import com.coldfriend.item.ItemDefinition;
+import com.coldfriend.item.ItemStack;
+import com.coldfriend.player.PlayerId;
+import com.coldfriend.player.PlayerInput;
+import com.coldfriend.player.PlayerMovement;
+import com.coldfriend.player.PlayerState;
+import com.coldfriend.ui.ShadowText;
+import com.coldfriend.world.SpawnPoints;
+import com.coldfriend.world.WorldSimulation;
+import com.coldfriend.world.items.PlacementCheck;
+import com.coldfriend.world.items.PlacementValidator;
+import com.coldfriend.world.items.WorldItem;
+import com.coldfriend.world.model.WorldData;
+import com.coldfriend.world.render.PlacementPreview;
+import com.coldfriend.world.render.WorldItemsView;
+import com.coldfriend.world.render.WorldScene;
+import com.jme3.app.Application;
+import com.jme3.app.SimpleApplication;
+import com.jme3.app.state.BaseAppState;
+import com.jme3.font.BitmapFont;
+import com.jme3.light.AmbientLight;
+import com.jme3.light.DirectionalLight;
+import com.jme3.math.ColorRGBA;
+import com.jme3.math.Vector3f;
+import com.jme3.post.FilterPostProcessor;
+import com.jme3.post.filters.FogFilter;
+import com.jme3.renderer.Camera;
+import java.util.Map;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * The first-person game screen. Builds the drawn world, runs the {@link WorldSimulation}, and presents it: it
+ * reads input, hands it to the simulation, and moves the camera to follow the player. Every gameplay decision
+ * is in the simulation, never here: dropping, picking up and placing are requests the simulation validates.
+ * Placement mode is presentation too: it shows a preview and sends the confirmed spot to the simulation. Owns its
+ * input mappings and releases them when disabled or paused.
+ */
+public final class WorldPlayState extends BaseAppState {
+
+    private static final Logger LOG = LoggerFactory.getLogger(WorldPlayState.class);
+    private static final String FONT_PATH = "Interface/Fonts/Default.fnt";
+    private static final ColorRGBA HUD_COLOR = new ColorRGBA(0.95f, 0.95f, 1f, 0.9f);
+    private static final ColorRGBA BAD_COLOR = new ColorRGBA(1f, 0.45f, 0.4f, 1f);
+    private static final ColorRGBA GOOD_COLOR = new ColorRGBA(0.6f, 1f, 0.65f, 1f);
+    private static final float FOV_DEGREES = 70f;
+    private static final float NEAR = 0.1f;
+    private static final float FAR = 600f;
+    private static final float EYE_HEIGHT = 1.65f;
+    private static final float FOG_DENSITY = 1.0f;
+    private static final float FOG_DISTANCE = 140f;
+    /** Distance walked between two footsteps, in metres. Tuning value; sprinting uses the faster sound. */
+    private static final float STEP_STRIDE = 2.5f;
+    private static final float PROMPT_SCALE = 1.4f;
+    private static final float PROMPT_BOTTOM = 120f;
+    private static final float CROSSHAIR_SCALE = 1.2f;
+    private static final String CROSSHAIR = "+";
+    private static final float HUD_SCALE = 1.1f;
+    private static final float HUD_MARGIN = 20f;
+    private static final float TOAST_SECONDS = 2.8f;
+    private static final float TOAST_BOTTOM = 180f;
+    private static final float ROTATE_STEP = (float) (Math.PI / 12.0);
+    private static final float AIM_STEP = 0.1f;
+    private static final float AIM_START = 0.3f;
+    private static final float SCENARIO_DELAY = 3f;
+    private static final float SCENARIO_LOOK_DOWN = -1.0f;
+    private static final float SCENARIO_PLACE_LOOK = -0.7f;
+    private static final int NO_SLOT = -1;
+
+    private final WorldData world;
+    private final PropCatalog catalog;
+    private final ItemCatalog itemCatalog;
+    private final ScreenNavigator navigator;
+    private final PlayOptions options;
+    private WorldSimulation simulation;
+    private WorldScene scene;
+    private WorldItemsView itemsView;
+    private PlacementPreview preview;
+    private GameplayInput gameplayInput;
+    private FilterPostProcessor fogProcessor;
+    private FogFilter fog;
+    private PlayerState player;
+    private ShadowText prompt;
+    private ShadowText crosshair;
+    private ShadowText selectedText;
+    private ShadowText toast;
+    private boolean paused;
+    private Footsteps footsteps;
+    private Ambience ambience;
+    private final StepCounter steps = new StepCounter(STEP_STRIDE);
+    private float lastX;
+    private float lastZ;
+    private int placingSlot = NO_SLOT;
+    private float placementYaw;
+    private float toastLeft;
+    private float scenarioClock;
+    private boolean scenarioDone;
+    private float scenarioLook;
+
+    /**
+     * @param world the generated world to play in
+     * @param catalog how to draw the world's scenery and items
+     * @param itemCatalog the item definitions
+     * @param navigator used to pause, open the inventory and leave the world
+     * @param options where the player starts and the time of day
+     */
+    public WorldPlayState(WorldData world, PropCatalog catalog, ItemCatalog itemCatalog, ScreenNavigator navigator,
+            PlayOptions options) {
+        this.options = options;
+        this.world = world;
+        this.catalog = catalog;
+        this.itemCatalog = itemCatalog;
+        this.navigator = navigator;
+    }
+
+    /** @return the simulation this screen presents; the inventory screen reads and changes it */
+    public WorldSimulation simulation() {
+        return simulation;
+    }
+
+    /**
+     * Stops or restarts the game without leaving the world. While paused the simulation stands still and the
+     * mouse is free for menus.
+     *
+     * @param pause true to pause
+     */
+    public void setPaused(boolean pause) {
+        if (pause == paused) {
+            return;
+        }
+        paused = pause;
+        if (pause) {
+            gameplayInput.detach();
+            prompt.setText("");
+            if (ambience != null) {
+                ambience.stop();
+            }
+        } else {
+            gameplayInput.attach();
+            gameplayInput.clear();
+            if (ambience != null) {
+                ambience.start();
+            }
+        }
+    }
+
+    /**
+     * Enters placement mode for the item in an inventory slot. Does nothing if the slot is empty or holds
+     * something that cannot be placed.
+     *
+     * @param slot the inventory slot
+     */
+    public void startPlacement(int slot) {
+        Optional<ItemStack> held = simulation.inventory(PlayerId.LOCAL).slot(slot);
+        if (held.isEmpty() || !itemCatalog.get(held.get().item()).canPlace()) {
+            showToast("That cannot be placed.");
+            return;
+        }
+        ItemDefinition definition = itemCatalog.get(held.get().item());
+        placingSlot = slot;
+        placementYaw = player.yaw();
+        preview.show(catalog.itemModel(definition.modelKey()), definition.placeRadius());
+        simulation.inventory(PlayerId.LOCAL).select(slot);
+    }
+
+    /**
+     * Applies settings that change while playing.
+     *
+     * @param updated the settings now in effect
+     */
+    public void apply(GameSettings updated) {
+        if (footsteps != null) {
+            footsteps.setVolume(updated.effectVolume());
+        }
+        if (ambience != null) {
+            ambience.setVolume(updated.effectVolume());
+        }
+        if (fog == null) {
+            return;
+        }
+        float factor = updated.fog().factor();
+        fog.setFogDensity(FOG_DENSITY * factor);
+        fog.setEnabled(factor > 0f);
+    }
+
+    @Override
+    protected void initialize(Application app) {
+        SimpleApplication simple = (SimpleApplication) app;
+        simulation = new WorldSimulation(world, itemCatalog);
+        player = simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, options.spawn()));
+        scene = new WorldScene(world, catalog, app.getAssetManager());
+        scene.root().addLight(new AmbientLight(options.lighting().ambient()));
+        scene.root().addLight(new DirectionalLight(options.lighting().direction(), options.lighting().sun()));
+        itemsView = new WorldItemsView(catalog, itemCatalog);
+        scene.root().attachChild(itemsView.root());
+        preview = new PlacementPreview(app.getAssetManager());
+        scene.root().attachChild(preview.root());
+        try {
+            footsteps = new Footsteps(app.getAssetManager(), scene.root());
+        } catch (RuntimeException e) {
+            LOG.warn("Footsteps are unavailable; the game continues without them: {}", e.getMessage());
+        }
+        try {
+            ambience = new Ambience(scene.root());
+        } catch (RuntimeException e) {
+            LOG.warn("Wind is unavailable; the game continues without it: {}", e.getMessage());
+        }
+        gameplayInput = new GameplayInput(simple.getInputManager());
+        fog = new FogFilter(options.lighting().sky(), FOG_DENSITY, FOG_DISTANCE);
+        fogProcessor = new FilterPostProcessor(app.getAssetManager());
+        fogProcessor.addFilter(fog);
+        apply(navigator.currentSettings());
+        BitmapFont font = app.getAssetManager().loadFont(FONT_PATH);
+        prompt = hudText(font, PROMPT_SCALE);
+        crosshair = hudText(font, CROSSHAIR_SCALE);
+        crosshair.setText(CROSSHAIR);
+        selectedText = hudText(font, HUD_SCALE);
+        toast = hudText(font, PROMPT_SCALE);
+        LOG.info("World ready to play: seed={} props={} items={} player at {},{} cabin at {},{}", world.seed(),
+                world.placements().size(), simulation.worldItems().size(), player.x(), player.z(),
+                world.cabin().footprint().x(), world.cabin().footprint().z());
+    }
+
+    @Override
+    protected void onEnable() {
+        SimpleApplication simple = (SimpleApplication) getApplication();
+        simple.getRootNode().attachChild(scene.root());
+        simple.getGuiNode().attachChild(prompt);
+        simple.getGuiNode().attachChild(crosshair);
+        simple.getGuiNode().attachChild(selectedText);
+        simple.getGuiNode().attachChild(toast);
+        simple.getViewPort().setBackgroundColor(options.lighting().sky());
+        simple.getViewPort().addProcessor(fogProcessor);
+        Camera camera = simple.getCamera();
+        camera.setFrustumPerspective(FOV_DEGREES, (float) camera.getWidth() / camera.getHeight(), NEAR, FAR);
+        paused = false;
+        if (ambience != null) {
+            ambience.start();
+        }
+        steps.reset();
+        lastX = player.x();
+        lastZ = player.z();
+        gameplayInput.attach();
+        followPlayer(camera);
+        centreHud(camera);
+    }
+
+    @Override
+    protected void onDisable() {
+        SimpleApplication simple = (SimpleApplication) getApplication();
+        gameplayInput.detach();
+        simple.getViewPort().removeProcessor(fogProcessor);
+        prompt.removeFromParent();
+        crosshair.removeFromParent();
+        selectedText.removeFromParent();
+        toast.removeFromParent();
+        scene.detach();
+        if (ambience != null) {
+            ambience.stop();
+        }
+    }
+
+    @Override
+    protected void cleanup(Application app) {
+        if (footsteps != null) {
+            footsteps.cleanup();
+            footsteps = null;
+        }
+        if (ambience != null) {
+            ambience.cleanup();
+            ambience = null;
+        }
+        simulation = null;
+        scene = null;
+        itemsView = null;
+        preview = null;
+        gameplayInput = null;
+        fogProcessor = null;
+        fog = null;
+        player = null;
+        prompt = null;
+        crosshair = null;
+        selectedText = null;
+        toast = null;
+    }
+
+    @Override
+    public void update(float tpf) {
+        if (!isEnabled() || paused) {
+            return;
+        }
+        Camera camera = ((SimpleApplication) getApplication()).getCamera();
+        if (placingSlot != NO_SLOT) {
+            handlePlacementInput();
+        } else if (!handleGameplayKeys()) {
+            return;
+        }
+        PlayerInput input = gameplayInput.consume();
+        if (scenarioLook != 0f) {
+            input = new PlayerInput(input.forward(), input.strafe(), input.turn(), input.look() + scenarioLook,
+                    input.sprint());
+            scenarioLook = 0f;
+        }
+        simulation.update(tpf, Map.of(PlayerId.LOCAL, input));
+        playFootsteps(input);
+        scene.setCabinDoorOpen(simulation.isCabinDoorOpen());
+        scene.animate(tpf);
+        itemsView.sync(simulation.worldItems());
+        followPlayer(camera);
+        if (placingSlot != NO_SLOT) {
+            updatePlacementPreview(camera);
+        } else {
+            showPrompt(camera);
+        }
+        updateHud(tpf, camera);
+        runScenario(tpf);
+    }
+
+    /** @return false if the screen changed and this frame should stop here */
+    private boolean handleGameplayKeys() {
+        if (gameplayInput.consumePause()) {
+            navigator.pauseGame();
+            return false;
+        }
+        if (gameplayInput.consumeInventory()) {
+            navigator.openInventory();
+            return false;
+        }
+        Inventory inventory = simulation.inventory(PlayerId.LOCAL);
+        int slot = gameplayInput.consumeSlot();
+        if (slot >= 0 && slot < inventory.size()) {
+            inventory.select(slot);
+        }
+        if (gameplayInput.consumeDrop()) {
+            Optional<ItemStack> held = inventory.selectedStack();
+            if (held.isPresent()) {
+                int quantity = gameplayInput.sprinting() ? held.get().quantity() : 1;
+                showToast(simulation.dropItem(PlayerId.LOCAL, inventory.selected(), quantity).message());
+            }
+        }
+        if (gameplayInput.consumePlace()) {
+            startPlacement(inventory.selected());
+        }
+        Optional<Interactable> target = simulation.interactableFor(PlayerId.LOCAL);
+        if (gameplayInput.consumeInteract() && target.isPresent()) {
+            showToast(simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().id())).message());
+        }
+        gameplayInput.consumeRotate();
+        gameplayInput.consumeConfirm();
+        gameplayInput.consumeCancel();
+        gameplayInput.consumeWheelTurn();
+        return true;
+    }
+
+    private void handlePlacementInput() {
+        gameplayInput.consumeInventory();
+        gameplayInput.consumeInteract();
+        gameplayInput.consumeDrop();
+        gameplayInput.consumePlace();
+        gameplayInput.consumeSlot();
+        if (gameplayInput.consumeRotate()) {
+            placementYaw += ROTATE_STEP;
+        }
+        placementYaw += gameplayInput.consumeWheelTurn();
+        if (gameplayInput.consumeCancel() || gameplayInput.consumePause()) {
+            endPlacement();
+            showToast("Placement cancelled.");
+            return;
+        }
+        if (gameplayInput.consumeConfirm()) {
+            confirmPlacement(((SimpleApplication) getApplication()).getCamera());
+        }
+    }
+
+    /** Sends the previewed spot to the simulation, which checks it again. Stays in placement mode while items remain. */
+    private void confirmPlacement(Camera camera) {
+        float[] spot = aimPoint(camera);
+        ActionResult result = simulation.placeItem(PlayerId.LOCAL, placingSlot, spot[0], spot[1], placementYaw);
+        showToast(result.message());
+        if (result.success() && simulation.inventory(PlayerId.LOCAL).slot(placingSlot).isEmpty()) {
+            endPlacement();
+        }
+    }
+
+    private void endPlacement() {
+        placingSlot = NO_SLOT;
+        preview.hide();
+    }
+
+    /** Where the player's line of sight meets the ground, floor or table top within reach. */
+    private float[] aimPoint(Camera camera) {
+        Vector3f eye = camera.getLocation();
+        Vector3f dir = camera.getDirection();
+        float limit = PlacementValidator.REACH + 2f;
+        for (float t = AIM_START; t <= limit; t += AIM_STEP) {
+            float x = eye.x + dir.x * t;
+            float z = eye.z + dir.z * t;
+            float y = eye.y + dir.y * t;
+            if (y <= simulation.restHeight(x, z) + AIM_STEP / 2f) {
+                return new float[] {x, z};
+            }
+        }
+        float horizontal = (float) Math.sqrt(dir.x * dir.x + dir.z * dir.z);
+        float scale = horizontal < 0.001f ? 0f : limit / horizontal;
+        return new float[] {eye.x + dir.x * scale, eye.z + dir.z * scale};
+    }
+
+    private void updatePlacementPreview(Camera camera) {
+        Optional<ItemStack> held = simulation.inventory(PlayerId.LOCAL).slot(placingSlot);
+        if (held.isEmpty()) {
+            endPlacement();
+            return;
+        }
+        float[] spot = aimPoint(camera);
+        PlacementCheck check = simulation.checkPlacement(PlayerId.LOCAL, placingSlot, spot[0], spot[1]);
+        float y = check.valid() ? check.y() : simulation.restHeight(spot[0], spot[1]);
+        preview.update(spot[0], y, spot[1], placementYaw, check.valid());
+        String name = itemCatalog.get(held.get().item()).name();
+        prompt.setColor(check.valid() ? GOOD_COLOR : BAD_COLOR);
+        prompt.setText(check.valid()
+                ? "Place " + name + ":  [Click / Enter] place   [R / wheel] rotate   [Esc / right click] cancel"
+                : check.problem().message() + "   [R / wheel] rotate   [Esc / right click] cancel");
+        centrePrompt(camera);
+    }
+
+    private void showPrompt(Camera camera) {
+        prompt.setColor(HUD_COLOR);
+        Optional<Interactable> target = simulation.interactableFor(PlayerId.LOCAL);
+        if (target.isEmpty()) {
+            prompt.setText("");
+            return;
+        }
+        if (target.get().kind() == InteractableKind.ITEM) {
+            prompt.setText("[E] Pick up " + describeItem(target.get().id()));
+        } else {
+            prompt.setText(simulation.isCabinDoorOpen() ? "[E] Close the door" : "[E] Open the door");
+        }
+        centrePrompt(camera);
+    }
+
+    private String describeItem(String interactableId) {
+        for (WorldItem item : simulation.worldItems()) {
+            if ((WorldSimulation.ITEM_PREFIX + item.id()).equals(interactableId)) {
+                String name = itemCatalog.get(item.stack().item()).name();
+                return item.stack().quantity() > 1 ? name + " x" + item.stack().quantity() : name;
+            }
+        }
+        return "item";
+    }
+
+    private void centrePrompt(Camera camera) {
+        prompt.setLocalTranslation(camera.getWidth() / 2f - prompt.lineWidth() / 2f,
+                PROMPT_BOTTOM, 0f);
+    }
+
+    private void updateHud(float tpf, Camera camera) {
+        Inventory inventory = simulation.inventory(PlayerId.LOCAL);
+        Optional<ItemStack> held = inventory.selectedStack();
+        String text = held.map(stack -> "[" + (inventory.selected() + 1) + "] " + itemCatalog.get(stack.item()).name()
+                + (stack.quantity() > 1 ? " x" + stack.quantity() : "")
+                + "     [I] Inventory   [Q] Drop   [P] Place")
+                .orElse("[" + (inventory.selected() + 1) + "] empty     [I] Inventory");
+        selectedText.setText(text);
+        selectedText.setLocalTranslation(HUD_MARGIN, HUD_MARGIN + selectedText.lineHeight(), 0f);
+        if (toastLeft > 0f) {
+            toastLeft -= tpf;
+            toast.setLocalTranslation(camera.getWidth() / 2f - toast.lineWidth() / 2f,
+                    TOAST_BOTTOM, 0f);
+            if (toastLeft <= 0f) {
+                toast.setText("");
+            }
+        }
+    }
+
+    private void showToast(String message) {
+        toast.setText(message);
+        toastLeft = TOAST_SECONDS;
+    }
+
+    private void playFootsteps(PlayerInput input) {
+        float dx = player.x() - lastX;
+        float dz = player.z() - lastZ;
+        lastX = player.x();
+        lastZ = player.z();
+        boolean wading = world.water().depthAt(world.terrain(), player.x(), player.z()) > PlayerMovement.WADE_DEPTH;
+        if (steps.advance((float) Math.sqrt(dx * dx + dz * dz)) && footsteps != null && !wading) {
+            footsteps.play(input.sprint());
+        }
+    }
+
+    /** Development scripts: do one thing a few seconds after the world starts, so a screenshot can show it. */
+    private void runScenario(float tpf) {
+        if (scenarioDone || options.scenario().isEmpty()) {
+            return;
+        }
+        scenarioClock += tpf;
+        if (scenarioClock < SCENARIO_DELAY) {
+            return;
+        }
+        scenarioDone = true;
+        switch (options.scenario()) {
+            case "inventory" -> navigator.openInventory();
+            case "placement" -> {
+                scenarioLook = SCENARIO_PLACE_LOOK;
+                startPlacement(0);
+            }
+            case "drop" -> {
+                simulation.dropItem(PlayerId.LOCAL, 0, 2);
+                scenarioLook = SCENARIO_LOOK_DOWN;
+            }
+            default -> LOG.warn("Unknown dev.scenario '{}'", options.scenario());
+        }
+    }
+
+    private static ShadowText hudText(BitmapFont font, float scale) {
+        return new ShadowText(font, scale, HUD_COLOR);
+    }
+
+    private void centreHud(Camera camera) {
+        crosshair.setLocalTranslation(camera.getWidth() / 2f - crosshair.lineWidth() / 2f,
+                camera.getHeight() / 2f + crosshair.lineHeight() / 2f, 0f);
+    }
+
+    /** Moves the camera to the player's eyes and points it where they look. */
+    private void followPlayer(Camera camera) {
+        camera.setLocation(new Vector3f(player.x(), player.y() + EYE_HEIGHT, player.z()));
+        float cosPitch = (float) Math.cos(player.pitch());
+        camera.lookAtDirection(new Vector3f(
+                (float) Math.sin(player.yaw()) * cosPitch,
+                (float) Math.sin(player.pitch()),
+                (float) Math.cos(player.yaw()) * cosPitch), Vector3f.UNIT_Y);
+        scene.update(player.x(), player.z());
+    }
+}
