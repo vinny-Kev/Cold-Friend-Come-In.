@@ -9,7 +9,9 @@ package com.coldfriend.creature;
  * @param mode what it is doing
  * @param observations how many things it remembers
  * @param routePointsLeft points still to walk on its current route; 0 when it has none
+ * @param targetX the spot it is walking to, x (meaningless when routePointsLeft is 0)
+ * @param targetZ the spot it is walking to, z
  */
 public record CreatureStatus(float x, float z, float heading, CreatureMode mode, int observations,
-        int routePointsLeft) {
+        int routePointsLeft, float targetX, float targetZ) {
 }

@@ -17,6 +17,7 @@ public final class Memory {
     private final Observation[] slots = new Observation[CreatureParameters.MEMORY_CAPACITY];
     private int count;
     private final Map<PlayerId, PlayerTrace> players = new HashMap<>();
+    private PlayerId focus;
 
     /**
      * Notes something noticed now.
@@ -60,6 +61,7 @@ public final class Memory {
      */
     void sawPlayer(PlayerId player, float x, float z, double minute) {
         trace(player).sawAt(x, z, minute);
+        focus = player;
     }
 
     /**
@@ -70,6 +72,15 @@ public final class Memory {
      */
     void believedWatched(PlayerId player, double minute) {
         trace(player).watchedAt(minute);
+        focus = player;
+    }
+
+    /**
+     * @return the player the creature has most recently seen or believed watching it, or null if it has never
+     *         perceived one. Decisions use this instead of naming a player.
+     */
+    public PlayerTrace focus() {
+        return focus == null ? null : players.get(focus);
     }
 
     /** @return what the creature remembers about a player; never null (empty if it never saw them) */

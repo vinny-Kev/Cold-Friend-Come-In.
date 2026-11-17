@@ -16,21 +16,22 @@ class MemoryTest {
         Memory memory = new Memory();
         memory.note(ObservationKind.SIGHT, 0f, 0f, 0.0, 1.0f);
         Observation sight = memory.get(0);
-        // Sight lasts 4 game minutes.
+        double life = CreatureParameters.SIGHT_LIFETIME;
         assertEquals(1.0, Memory.confidenceAt(sight, 0.0), EPS);
-        assertEquals(0.5, Memory.confidenceAt(sight, 2.0), EPS);
-        assertEquals(0.25, Memory.confidenceAt(sight, 3.0), EPS);
-        assertEquals(0.0, Memory.confidenceAt(sight, 4.0), EPS);
-        assertEquals(0.0, Memory.confidenceAt(sight, 9.0), EPS, "never negative");
+        assertEquals(0.5, Memory.confidenceAt(sight, life / 2), EPS);
+        assertEquals(0.25, Memory.confidenceAt(sight, life * 0.75), EPS);
+        assertEquals(0.0, Memory.confidenceAt(sight, life), EPS);
+        assertEquals(0.0, Memory.confidenceAt(sight, life * 3), EPS, "never negative");
     }
 
     @Test
     void expiredObservationsAreForgotten() {
         Memory memory = new Memory();
         memory.note(ObservationKind.SOUND, 0f, 0f, 0.0, 0.8f);
-        memory.forgetExpired(2.9);
-        assertEquals(1, memory.size(), "sound lasts 3 minutes");
-        memory.forgetExpired(3.0);
+        double life = CreatureParameters.SOUND_LIFETIME;
+        memory.forgetExpired(life - 0.1);
+        assertEquals(1, memory.size(), "sound lasts for its lifetime");
+        memory.forgetExpired(life);
         assertEquals(0, memory.size());
     }
 

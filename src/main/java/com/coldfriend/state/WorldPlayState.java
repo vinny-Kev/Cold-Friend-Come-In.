@@ -21,8 +21,10 @@ import com.coldfriend.player.StepCounter;
 import com.coldfriend.player.PlayerState;
 import com.coldfriend.survival.HearthStatus;
 import com.coldfriend.creature.CreatureStatus;
+import com.coldfriend.assets.IconCatalog;
 import com.coldfriend.ui.ShadowText;
 import com.coldfriend.world.render.CreatureDebugView;
+import com.coldfriend.ui.HotbarView;
 import com.coldfriend.ui.SurvivalHud;
 import com.coldfriend.world.SpawnPoints;
 import com.coldfriend.world.SurvivalActions;
@@ -105,6 +107,8 @@ public final class WorldPlayState extends BaseAppState {
     private ShadowText selectedText;
     private ShadowText toast;
     private SurvivalHud survivalHud;
+    private final IconCatalog icons;
+    private HotbarView hotbar;
     private CreatureDebugView creatureView;
     private ShadowText creatureText;
     private SkyLighting sky;
@@ -129,11 +133,12 @@ public final class WorldPlayState extends BaseAppState {
      * @param navigator used to pause, open the inventory and leave the world
      * @param options where the player starts and the time of day
      */
-    public WorldPlayState(WorldData world, PropCatalog catalog, ItemCatalog itemCatalog, ScreenNavigator navigator,
-            PlayOptions options) {
+    public WorldPlayState(WorldData world, PropCatalog catalog, IconCatalog icons, ItemCatalog itemCatalog,
+            ScreenNavigator navigator, PlayOptions options) {
         this.options = options;
         this.world = world;
         this.catalog = catalog;
+        this.icons = icons;
         this.itemCatalog = itemCatalog;
         this.navigator = navigator;
     }
@@ -243,6 +248,7 @@ public final class WorldPlayState extends BaseAppState {
         selectedText = hudText(font, HUD_SCALE);
         toast = hudText(font, PROMPT_SCALE);
         survivalHud = new SurvivalHud(font);
+        hotbar = new HotbarView(app.getAssetManager(), font, icons);
         if (options.showCreature()) {
             creatureView = new CreatureDebugView(app.getAssetManager());
             scene.root().attachChild(creatureView.root());
@@ -262,6 +268,7 @@ public final class WorldPlayState extends BaseAppState {
         simple.getGuiNode().attachChild(selectedText);
         simple.getGuiNode().attachChild(toast);
         simple.getGuiNode().attachChild(survivalHud.root());
+        simple.getGuiNode().attachChild(hotbar.root());
         if (creatureText != null) {
             simple.getGuiNode().attachChild(creatureText);
         }
@@ -293,6 +300,7 @@ public final class WorldPlayState extends BaseAppState {
         selectedText.removeFromParent();
         toast.removeFromParent();
         survivalHud.root().removeFromParent();
+        hotbar.root().removeFromParent();
         if (creatureText != null) {
             creatureText.removeFromParent();
         }
@@ -365,6 +373,8 @@ public final class WorldPlayState extends BaseAppState {
             showPrompt(camera);
         }
         updateHud(tpf, camera);
+        hotbar.layout(camera.getWidth(), camera.getHeight());
+        hotbar.refresh(simulation.inventory(PlayerId.LOCAL));
         if (creatureView != null) {
             showCreature(camera);
         }

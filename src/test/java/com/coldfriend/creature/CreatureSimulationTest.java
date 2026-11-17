@@ -79,7 +79,7 @@ class CreatureSimulationTest {
         double travelled = 0;
         double closestToCabin = Double.MAX_VALUE;
         Footprint cabin = world.cabin().footprint();
-        float speedLimit = CreatureParameters.WANDER_SPEED * STEP * 1.01f + 1e-4f;
+        float speedLimit = CreatureParameters.ROAM_SPEED * STEP * 1.01f + 1e-4f;
         // Five game minutes, no players.
         for (int i = 0; i < 6000; i++) {
             simulation.update(STEP, Map.of());

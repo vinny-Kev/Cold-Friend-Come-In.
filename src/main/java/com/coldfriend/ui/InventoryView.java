@@ -249,7 +249,8 @@ public final class InventoryView {
         return name.length() <= NAME_CHARS ? name : name.substring(0, NAME_CHARS - 1) + ".";
     }
 
-    private static ColorRGBA categoryColor(ItemCategory category) {
+    /** The icon colour for each item category; shared with the hotbar so both look the same. */
+    static ColorRGBA categoryColor(ItemCategory category) {
         return switch (category) {
             case MATERIAL -> new ColorRGBA(0.62f, 0.50f, 0.32f, 1f);
             case FOOD -> new ColorRGBA(0.72f, 0.42f, 0.30f, 1f);

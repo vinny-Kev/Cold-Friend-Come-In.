@@ -8,6 +8,7 @@ import com.coldfriend.state.BackdropState;
 import com.coldfriend.state.InventoryState;
 import com.coldfriend.state.MainMenuState;
 import com.coldfriend.state.PauseState;
+import com.coldfriend.assets.IconCatalog;
 import com.coldfriend.state.PlayOptions;
 import com.coldfriend.state.ScreenNavigator;
 import com.coldfriend.state.SettingsState;
@@ -47,6 +48,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private static final float QUIT_AFTER_SCREENSHOT_SECONDS = 1.5f;
     private static final Path CATALOG_FILE = Path.of(ASSET_FOLDER, "models", "catalog.properties");
     private static final Path ITEMS_FILE = Path.of("config", "items.properties");
+    private static final Path ICONS_FILE = Path.of(ASSET_FOLDER, "ui", "icons.properties");
 
     private final GameConfig config;
     private final SettingsStore settingsStore;
@@ -60,6 +62,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private WorldData currentWorld;
     private ModelCatalog catalog;
     private ItemCatalog items;
+    private IconCatalog icons;
     private InventoryState inventoryState;
     private ScreenshotAppState screenshot;
     private float developmentClock;
@@ -251,12 +254,15 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
             if (items == null) {
                 items = ItemCatalog.load(ITEMS_FILE);
             }
+            if (icons == null) {
+                icons = new IconCatalog(assetManager, ICONS_FILE);
+            }
             WorldData world = existing != null ? existing : WorldGenerator.generate(seed, WorldGenParameters.DEFAULT);
             mainMenuState.setEnabled(false);
             settingsState.setEnabled(false);
             pauseState.setEnabled(false);
             backdropState.setEnabled(false);
-            worldState = new WorldPlayState(world, catalog, items, this, new PlayOptions(
+            worldState = new WorldPlayState(world, catalog, icons, items, this, new PlayOptions(
                     config.optionalString(SPAWN_KEY).orElse("cabin"),
                     startMinute(),
                     scenario,

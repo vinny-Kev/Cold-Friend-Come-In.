@@ -12,7 +12,7 @@ public final class CreatureState {
     private float x;
     private float z;
     private float heading;
-    private CreatureMode mode = CreatureMode.WANDER;
+    private CreatureMode mode = CreatureMode.ROAM;
 
     /**
      * @param id the creature's identity
@@ -50,6 +50,10 @@ public final class CreatureState {
     /** @return what the creature is doing */
     public CreatureMode mode() {
         return mode;
+    }
+
+    void setMode(CreatureMode next) {
+        mode = next;
     }
 
     void moveTo(float newX, float newZ) {

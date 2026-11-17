@@ -59,10 +59,14 @@ public final class CreatureParameters {
     public static final float TRACK_CONFIDENCE = 0.6f;
     public static final float CHANGED_CONFIDENCE = 0.5f;
 
-    /** How long each kind of observation lasts, in game minutes, before its confidence reaches zero. */
-    public static final double SIGHT_LIFETIME = 4.0;
-    public static final double SOUND_LIFETIME = 3.0;
-    public static final double TRACK_LIFETIME = 90.0;
+    /**
+     * How long each kind of observation lasts, in game minutes, before its confidence reaches zero. Retuned in Phase C:
+     * a game minute is under a second of real time at a 20-minute day, so the Phase B values (sight 4, sound 3) made
+     * the creature forget within seconds, before it could act on anything.
+     */
+    public static final double SIGHT_LIFETIME = 30.0;
+    public static final double SOUND_LIFETIME = 20.0;
+    public static final double TRACK_LIFETIME = 120.0;
     public static final double CHANGED_LIFETIME = 240.0;
 
     /** Most observations kept at once, and how close two of one kind must be to count as the same, in metres. */
@@ -70,12 +74,13 @@ public final class CreatureParameters {
     public static final float MERGE_RADIUS = 8f;
 
     /** Speed while wandering, in metres per second. Below the player's walking speed of 3.4 m/s. */
-    public static final float WANDER_SPEED = 1.4f;
+    public static final float ROAM_SPEED = 1.4f;
     /** Distance range for a wander target, in metres from the creature. */
     public static final float WANDER_MIN_DISTANCE = 30f;
     public static final float WANDER_MAX_DISTANCE = 80f;
     /** A target is given up after this many game minutes, if it has not been reached. */
-    public static final double WANDER_TIMEOUT_MINUTES = 1.0;
+    /** A roaming target is given up after this many real seconds, if it has not been reached. */
+    public static final double WANDER_TIMEOUT_SECONDS = 60.0;
     /** Random spots tried for a wander target before giving up for this brain tick. */
     public static final int WANDER_ATTEMPTS = 40;
 
@@ -105,6 +110,49 @@ public final class CreatureParameters {
     public static final double STALL_SECONDS = 2.0;
     /** A point on a route counts as reached within this distance, in metres. */
     public static final float WAYPOINT_REACH = 0.5f;
+
+    /*
+     * Phase C: how the creature chooses what to do. Times are in seconds; scores are in 0 to 1.
+     */
+
+    /**
+     * Real seconds per game minute (1200 / 1440 at the default day length). The brain's timers are real seconds, so it
+     * converts game time with this. Memory decay stays in game minutes, because the clock drives it.
+     */
+    public static final double REAL_SECONDS_PER_GAME_MINUTE =
+            com.coldfriend.time.ClockParameters.DEFAULT.realSecondsPerDay() / (double) com.coldfriend.time.WorldClock.MINUTES_PER_DAY;
+
+    /** A mode is kept at least this long before another can replace it (ROAM is kept 10 s). */
+    public static final double COMMIT_ROAM = 10.0;
+    public static final double COMMIT_INVESTIGATE = 15.0;
+    public static final double COMMIT_OBSERVE = 8.0;
+    public static final double COMMIT_STALK = 4.0;
+    public static final double COMMIT_CIRCLE = 10.0;
+    public static final double COMMIT_HOLD = 10.0;
+    public static final double COMMIT_WITHDRAW = 5.0;
+    /** A new mode must score this much more than the current one (15 per cent) to replace it when committed. */
+    public static final double HYSTERESIS = 1.15;
+
+    /** The creature counts as watched for this long after it believed the player was looking at it. */
+    public static final double WATCHED_WINDOW = 10.0;
+    /** After withdrawing, the creature does not stalk, observe or circle for this long. */
+    public static final double WITHDRAW_COOLDOWN = 30.0;
+    /** Evidence weaker than this is not worth investigating. */
+    public static final float EVIDENCE_THRESHOLD = 0.2f;
+    /** The creature treats the cabin as something to watch when the player was last seen this close to it. */
+    public static final float CABIN_INTEREST_RANGE = 60f;
+
+    /** Stalking keeps this far from where the player was last seen, in metres. */
+    public static final float STALK_DISTANCE = 30f;
+    /** Observing keeps this far from the cabin, in metres (a band). */
+    public static final float OBSERVE_MIN_CABIN = 18f;
+    public static final float OBSERVE_MAX_CABIN = 25f;
+    /** Circling keeps this far from the cabin, in metres. */
+    public static final float CIRCLE_RADIUS = 15f;
+    /** Withdrawing aims this far from where the player was last seen, in metres. */
+    public static final float WITHDRAW_DISTANCE = 45f;
+    /** Spots tried for a mode's target before giving up for this decision. */
+    public static final int TARGET_ATTEMPTS = 16;
 
     private CreatureParameters() {
     }

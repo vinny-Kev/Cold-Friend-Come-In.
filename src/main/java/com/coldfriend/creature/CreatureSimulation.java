@@ -68,7 +68,8 @@ public final class CreatureSimulation {
                 float heading = (float) (random.nextDouble() * 2.0 * Math.PI);
                 CreatureState creature = new CreatureState(id, x, z, heading);
                 CreatureNavigator navigator = new CreatureNavigator(world, collision);
-                CreatureBrain brain = new CreatureBrain(territory, navigator, streams.random("creature.wander"));
+                CreatureBrain brain = new CreatureBrain(world, collision, territory, navigator,
+                        streams.random("creature.wander"));
                 Perception perception = new Perception(world, collision, streams.random("creature.hearing"));
                 return Optional.of(new CreatureSimulation(creature, perception, navigator, brain));
             }
@@ -88,7 +89,7 @@ public final class CreatureSimulation {
     public void step(float dt, Collection<PlayerState> players, List<SenseEvent> senses, DayPhase phase,
             double minute) {
         steps++;
-        navigator.step(creature, CreatureParameters.WANDER_SPEED, dt);
+        navigator.step(creature, CreatureParameters.ROAM_SPEED, dt);
         perception.hear(creature, senses, phase, memory);
         if (steps % CreatureParameters.PERCEPTION_EVERY_STEPS == 0) {
             for (PlayerState player : players) {
@@ -97,14 +98,14 @@ public final class CreatureSimulation {
         }
         if (steps == 1 || steps % CreatureParameters.BRAIN_EVERY_STEPS == 0) {
             memory.forgetExpired(minute);
-            brain.think(creature, minute);
+            brain.think(creature, memory, phase, minute);
         }
     }
 
     /** @return a snapshot for the debug overlay */
     public CreatureStatus status() {
         return new CreatureStatus(creature.x(), creature.z(), creature.heading(), creature.mode(), memory.size(),
-                navigator.remaining());
+                navigator.remaining(), brain.targetX(), brain.targetZ());
     }
 
     /** @return the creature's identity */
