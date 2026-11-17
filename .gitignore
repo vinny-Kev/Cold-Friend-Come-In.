@@ -1,0 +1,20 @@
+# Build output
+build/
+.gradle/
+.gradle-home/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Runtime-generated player settings (created by the game)
+config/settings.properties
+
+# OS
+Thumbs.db
+.DS_Store
