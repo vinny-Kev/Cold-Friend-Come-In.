@@ -35,14 +35,17 @@ The game must be started from the project folder, because it reads `config/game.
 | Move | W / A / S / D or the arrow keys |
 | Look | Mouse |
 | Run | Shift |
-| Interact | E (opens and closes the cabin door when you are next to it) |
+| Interact | E (open or close the cabin door; pick up the item you are looking at) |
+| Inventory | I or Tab; number keys 1 to 9 select a slot |
+| Drop | Q drops one of the selected item, Shift+Q the whole stack |
+| Place | P places the selected item: aim, R or the wheel rotates, click or Enter places, right click or Esc cancels |
 | Pause | Escape (Resume, Settings, Quit to Menu) |
 
 ## Worlds and seeds
 
 New Game generates a world from a seed. Leave `world.seed` blank in `config/game.properties` for a different random world each time, or set it to a number or any text to get the same world again. The seed, generation version and parameter fingerprint are written to the log. The same seed and generation version always give the same world.
 
-You start inside the cabin with the door shut. For development, `dev.spawn` (cabin, cabindoor, cabinview, village or river) picks where you start, `dev.showFps` shows the frame rate, `dev.autostart` starts a world straight from the menu, and `dev.screenshot=<path>` makes the game save one picture of its own frame there after a few seconds and quit. The screenshot option never captures anything outside the game window.
+You start inside the cabin with the door shut. For development, `dev.spawn` (cabin, cabindoor, cabinview, village or river) picks where you start, `dev.showFps` shows the frame rate, `dev.autostart` starts a world straight from the menu, `dev.time` (day, dusk or night) sets the light, `dev.scenario` (inventory, drop or placement) runs a short script for screenshots, and `dev.screenshot=<path>` makes the game save one picture of its own frame there after a few seconds and quit. The screenshot option never captures anything outside the game window.
 
 ## Controls (menus)
 
@@ -103,7 +106,8 @@ src/test/java/   JUnit 5 tests
 
 - Volumes are stored but not applied (no audio yet).
 - The menu backdrop is placeholder geometry.
-- The village buildings are plain boxes with no interior or doors yet. The cabin has an interior (bed, stove, table), a door, glowing windows, and warm lights; its furniture cannot be used yet.
+- Most item models are placeholders (a magenta cube); only the stone has a model. There are no inventory icons.
+- The village buildings are hollow shells with transparent windows but no usable doors. The cabin has an interior (bed, stove, table), a door, glowing windows, and warm lights; its furniture cannot be used yet.
 - No snowfall in the world yet, no seed entry screen (use `world.seed`).
 - The bush texture is autumn red; it is tinted darker but not green.
 - Only Windows has been tested.

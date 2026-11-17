@@ -95,3 +95,13 @@ Each entry: the decision, why, and what was considered. Entries marked **Open** 
 **Decision:** `CabinLayout` describes the cabin's walls, doorway, door and furniture as boxes in the cabin's own directions. Collision (`WorldCollision`) and drawing (`CabinView`) both read it, so they cannot disagree. Whether the door is open lives in `WorldSimulation`; the view only animates toward it. Using things goes through `InteractionRequest` and `Interactable`, so a future server can validate it.
 **Pause:** `PauseState` is a menu over the world. `WorldPlayState` stays loaded but stops updating and releases its input mappings, so the cursor is free. Settings opened from the pause menu return to it.
 **Development screenshots:** `dev.screenshot` saves the game's own frame through the engine's screenshot state. Desktop screen capture and synthetic mouse or keyboard input are not used, because they can capture other windows and interfere with the person using the machine.
+
+## D-016: Real window openings and depth-write-off glass; items as definitions plus instances
+
+**Window root cause:** windows were opaque `Unshaded` boxes laid on walls that were themselves single solid boxes. There was nothing to see through even if the glass had been transparent.
+**Fix:** walls are built from pieces around real openings (`RenderParts.wallWithOpenings`), with opaque frames and two glass sheets facing opposite ways. Glass is lit, alpha blended, in the transparent bucket, with depth writing off so it cannot hide what is behind it. Village homes are now hollow shells so their windows show an interior.
+**Items:** `ItemDefinition` (static data from `config/items.properties`) is separate from `ItemStack` and `WorldItem` (quantities and positions). Inventories, world items and placed objects all refer to items by `ItemId`. No item manager class: `Inventory` holds quantities, `ItemActions` does transfers, `PlacementValidator` decides where items may go, and `WorldSimulation` owns the state and exposes the requests.
+**Placement:** the preview is presentation; the simulation validates again on confirm. Rules are an ordered list of small `PlacementRule`s so a new rule is one method.
+**Missing assets:** only `stone` has a model. Other items draw as a magenta cube until models are approved. No icons exist; the inventory draws a coloured square with the item's first letter.
+**Development aids:** `dev.time` (day, dusk, night), `dev.scenario` (inventory, drop, placement) and more `dev.spawn` values let screenshots show these without sending keyboard or mouse input.
+
