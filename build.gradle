@@ -38,6 +38,18 @@ application {
     mainClass = 'com.coldfriend.Main'
 }
 
+// Developer tool: ./gradlew worldPreview -PpreviewArgs="--seed 7 --view river --night"
+tasks.register('worldPreview', JavaExec) {
+    group = 'application'
+    description = 'Opens the terrain and water preview window.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.coldfriend.dev.WorldPreviewApp'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+    if (project.hasProperty('previewArgs')) {
+        args project.property('previewArgs').split(' ')
+    }
+}
+
 test {
     useJUnitPlatform()
     testLogging {

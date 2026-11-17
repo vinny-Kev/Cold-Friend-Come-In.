@@ -23,10 +23,12 @@ Versions are pinned in `gradle.properties`.
 | `state` | Screen states: menu backdrop, main menu, settings; navigation interface | Implemented |
 | `input` | Central mapping from keys and mouse to `GameAction`, input ownership | Implemented |
 | `ui` | Menu model (pure logic) and menu view (text rendering, hit testing) | Implemented |
-| `environment` | Procedural menu scene: ground, trees, cabin, snow, camera sway (fog is applied by `state/BackdropState`) | Implemented |
+| `environment` | Procedural menu scene: ground, trees, cabin, snow, camera sway (fog is applied by `state/BackdropState`); terrain and water rendering (`TerrainMeshBuilder`, `WaterView`) | Implemented |
+| `world` | Seeded terrain and water bodies (rivers, streams, lakes, ponds, ice) with analytic queries; no engine types | Implemented (terrain and water only; see `docs/development/`) |
+| `dev` | Developer tools, e.g. `WorldPreviewApp` (`./gradlew worldPreview`) | Implemented |
 | `audio` | Playback and mixing | Planned |
 | `assets` | Asset interfaces decoupling gameplay from file formats | Planned |
-| `world`, `player`, `interaction`, `survival`, `creature`, `inventory`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
+| `player`, `interaction`, `survival`, `creature`, `inventory`, `narrative` | Gameplay subsystems | Planned (package descriptors only) |
 
 ## Dependency direction
 
@@ -70,6 +72,12 @@ Format: Java `.properties`. See `docs/DECISIONS.md` for why JSON or YAML were no
 ## Assets
 
 `assets/` holds externally sourced assets, in folders for models, textures, materials, audio, music, environments and UI. Empty folders are kept with `.gitkeep`. The menu scene uses only engine built-ins and procedural geometry.
+
+## Developer documentation
+
+- `docs/development/WATER_SYSTEM.md`: water bodies, generation, rendering, detection, ice, troubleshooting.
+- `docs/development/WORLD_GENERATION_GUIDE.md`: pipeline and determinism rules.
+- `docs/development/ARCHITECTURE_GUIDE.md`: structure and design decisions for the world and water code.
 
 ## Known gaps
 
