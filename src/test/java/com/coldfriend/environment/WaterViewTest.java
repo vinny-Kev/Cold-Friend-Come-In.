@@ -25,7 +25,7 @@ class WaterViewTest {
     @Test
     void buildsOneSharedMaterialGeometryPerBody() {
         GeneratedWorld world = GeneratedWorld.generate(42L);
-        WaterView view = new WaterView(assets(), world, WaterLighting.day());
+        WaterView view = new WaterView(assets(), world, SceneLighting.day());
 
         assertEquals(world.waterBodies().size(), view.geometryCount());
         Geometry first = (Geometry) view.node().getChild(0);
@@ -38,7 +38,7 @@ class WaterViewTest {
     @Test
     void meshesCarryPatternCoordinatesAndPerVertexWaterInfo() {
         GeneratedWorld world = GeneratedWorld.generate(7L);
-        WaterView view = new WaterView(assets(), world, WaterLighting.night());
+        WaterView view = new WaterView(assets(), world, SceneLighting.night());
 
         for (Spatial child : view.node().getChildren()) {
             Mesh mesh = ((Geometry) child).getMesh();
@@ -54,7 +54,7 @@ class WaterViewTest {
     void disposeDetachesFromTheSceneAndEmptiesTheView() {
         GeneratedWorld world = GeneratedWorld.generate(1L);
         Node root = new Node("root");
-        WaterView view = new WaterView(assets(), world, WaterLighting.day());
+        WaterView view = new WaterView(assets(), world, SceneLighting.day());
         root.attachChild(view.node());
         assertEquals(1, root.getQuantity());
 
@@ -68,10 +68,10 @@ class WaterViewTest {
     @Test
     void lightingCanChangeWithoutRebuildingGeometry() {
         GeneratedWorld world = GeneratedWorld.generate(1L);
-        WaterView view = new WaterView(assets(), world, WaterLighting.day());
+        WaterView view = new WaterView(assets(), world, SceneLighting.day());
         int before = view.geometryCount();
 
-        view.setLighting(WaterLighting.night());
+        view.setLighting(SceneLighting.night());
 
         assertEquals(before, view.geometryCount());
         view.dispose();

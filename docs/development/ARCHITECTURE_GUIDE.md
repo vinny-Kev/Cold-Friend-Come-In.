@@ -172,3 +172,49 @@ Rules the code relies on:
 | Narrative, creature | Planned (placeholder packages only). Creature design: CREATURE_AI_DESIGN.md |
 | Audio | Partial: footsteps (WAV) and generated wind. No fire or creature sounds. |
 | Multiplayer | Planned as a later extension. Not started. |
+
+## Standalone terrain, water and foliage module
+
+**Status: Implemented, not yet wired into the game.** A second, self-contained world model sits next to the `gen`/`model` pipeline above. It was built first and does not use `WorldData`, `HeightField` or `WaterMap`, and nothing in `gen`, `model` or `render` uses it. Both currently coexist; reconciling them (one terrain, one water model) is open work.
+
+```
+com.coldfriend.world        pure Java, no engine types
+    BaseTerrain             seeded height noise (256 m world)
+    WaterType, WaterBody    water data (rivers, streams, lakes, ponds, ice), immutable
+    WaterGenerator          placement (package-private)
+    TerrainCarver           ground with channels cut in (package-private)
+    GeneratedWorld          terrain + bodies + queries; the public face
+    WaterSample             reusable query result
+    WaterDetector,          per-entity contact tracking (dry / on ice / in water)
+    WaterContact
+    BushSpawn, BushPlacer   where bushes stand (own random stream)
+
+com.coldfriend.environment  engine rendering of that data
+    TerrainMeshBuilder      flat-shaded terrain mesh
+    WaterMeshBuilder        ribbon / disc meshes per body (package-private)
+    WaterView               node + one shared material + dispose()
+    FoliageView             batched swaying bushes: node + one shared material + dispose()
+    BushMeshBuilder         bush shape and per-vertex sway data (package-private)
+    Wind                    wind values for the foliage shader
+    SceneLighting           light values handed to the shaders (water, foliage)
+    MeshCleanup             frees direct buffers
+
+com.coldfriend.dev          WorldPreviewApp: fly camera and screenshots of a GeneratedWorld
+                            (./gradlew worldPreview)
+
+src/main/resources          MatDefs/Water.j3md + Shaders/Water.*, MatDefs/Foliage.j3md + Shaders/Foliage.*
+```
+
+Dependency direction: `dev -> environment -> world`; `world` imports only the JDK. That keeps the module testable without an engine.
+
+Design decisions, in short:
+
+- **Analytic queries instead of physics objects.** Water is long, thin and curved, so containment is distance to a centreline polyline. Queries allocate nothing and cannot drift from the visuals because both read the same `WaterBody` points.
+- **One representation for every body.** A lake is a one-point polyline; rivers, streams and ponds use the same containment, carving and rendering code.
+- **One shared carve function.** `TerrainCarver` serves both the generator (rivers are traced over already-carved ground) and `GeneratedWorld`.
+- **Shaders animate from engine time**, so there is no per-frame Java work. Frozen state and flow live in vertex data, so the world needs one water material.
+- **Lighting is passed in, not read.** The shaders cannot see jME lights, so the scene owner gives `WaterView` and `FoliageView` a `SceneLighting`.
+
+Resource lifecycle: `WaterView.dispose()` and `FoliageView.dispose()` detach their nodes and destroy the meshes' direct buffers; terrain geometry from `TerrainMeshBuilder.build` is released with `MeshCleanup.release(geometry.getMesh())`.
+
+Details: [WATER_SYSTEM.md](WATER_SYSTEM.md) and [FOLIAGE_WIND.md](FOLIAGE_WIND.md).

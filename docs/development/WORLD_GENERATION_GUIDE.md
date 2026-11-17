@@ -97,3 +97,11 @@ The result is a `WorldData`. `WorldValidator.validate` then checks it against th
 
 - The game generated a world at launch with the seed in the log, took about 780 ms, and entered play (see `GETTING_STARTED.md`).
 - `WorldGeneratorTest`, `PlacementTest` and `CabinTest` pass (23 tests). The determinism guarantee is tested by those suites, not re-proven here.
+
+## The standalone `GeneratedWorld` generator
+
+A second, smaller generator lives in `com.coldfriend.world` (`GeneratedWorld.generate(seed)`). It is separate from the pipeline described above: it has its own terrain noise, its own rivers, streams, lakes and ponds (`WaterGenerator`), and its own bush placement (`BushPlacer`). It is not used by `WorldGenerator`, `WorldScene` or the game, and the two do not share data. Its own version constants are `WaterGenerator.GENERATION_VERSION` and `BushPlacer.PLACER_VERSION`.
+
+Its rules mirror the guarantee above: the same seed and version give the same world; layout and cosmetic decisions use separate random streams (water geometry versus frozen state; bush placement on its own stream); rendering never feeds back into generation.
+
+Details: [WATER_SYSTEM.md](WATER_SYSTEM.md) (rivers carved over already-carved terrain, ice, queries) and [FOLIAGE_WIND.md](FOLIAGE_WIND.md) (bushes and wind sway). Preview it with `./gradlew worldPreview -PpreviewArgs="--seed 7 --view river"`.

@@ -14,7 +14,7 @@ Water is world data first and a picture second. Everything gameplay needs (is th
 | World = terrain + bodies + queries | `GeneratedWorld` | `world` |
 | Per-entity contact tracking | `WaterDetector`, `WaterContact` | `world` |
 | Reusable query result | `WaterSample` | `world` |
-| Water surface meshes + material | `WaterMeshBuilder`, `WaterView`, `WaterLighting` | `environment` |
+| Water surface meshes + material | `WaterMeshBuilder`, `WaterView`, `SceneLighting` | `environment` |
 | Terrain mesh | `TerrainMeshBuilder` | `environment` |
 | Mesh buffer cleanup | `MeshCleanup` | `environment` |
 | Shader | `MatDefs/Water.j3md`, `Shaders/Water.vert`, `Shaders/Water.frag` | resources |
@@ -93,7 +93,7 @@ Because frozen state and flow live in vertex data, the whole world uses a single
 
 `Water.frag` does, per pixel: three travelling sine waves for a rippled normal (scaled up by flow speed and scrolled along the flow); a shallow-to-deep colour mix by depth; a Fresnel mix toward sky colour; a sun glint; a pale foam/snow line and alpha fade at the shoreline. Frozen bodies skip the ripples, use an opaque pale ice colour with faint crack lines, and have weaker reflection. The render state is alpha blend, no face culling, no depth write; geometry goes in the transparent bucket.
 
-Lighting: the shader does not read jME light objects. The scene owner passes a `WaterLighting` (sun direction, sun colour, ambient, sky) to `WaterView.setLighting`, which updates uniforms only. `WaterLighting.day()` and `night()` are provided. Call it when your lighting changes; nothing else needs rebuilding.
+Lighting: the shader does not read jME light objects. The scene owner passes a `SceneLighting` (sun direction, sun colour, ambient, sky) to `WaterView.setLighting`, which updates uniforms only. `SceneLighting.day()` and `night()` are provided. Call it when your lighting changes; nothing else needs rebuilding.
 
 Cleanup: `WaterView.dispose()` detaches the node and destroys the meshes' direct buffers (`MeshCleanup.release`). Do the same for the terrain geometry. The materials are plain objects with no GPU resources of their own.
 
@@ -153,7 +153,7 @@ On this repository's machine Gradle's launcher JVM must be a JDK that Gradle 8.1
 
 **No water visible.** Check the log for the body list. Check that the water node is attached and that the camera is inside the world (`BaseTerrain.HALF_EXTENT`, 128 m). Check the log for shader compile errors from `Water.frag`; a failure there is reported when the first frame renders.
 
-**Water looks flat or too bright or dark.** The shader uses only the values in `WaterLighting`. Call `setLighting` with values matching your scene. It does not read jME lights.
+**Water looks flat or too bright or dark.** The shader uses only the values in `SceneLighting`. Call `setLighting` with values matching your scene. It does not read jME lights.
 
 **Water floats or is buried.** The world-layer invariants are tested for eight seeds: the bed is below the surface, terrain never rises above a body's own bed inside its water, and the bank within 0.3 m of the edge is within 0.5 m of the local water level. If a new seed shows a defect, reproduce it with `GeneratedWorld.generate(seed)` and the same checks; a mismatch between visuals and queries means the mesh and the data have drifted.
 

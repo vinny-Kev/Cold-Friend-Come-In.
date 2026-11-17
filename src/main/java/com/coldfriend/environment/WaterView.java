@@ -37,7 +37,7 @@ public final class WaterView {
      * @param world world whose water is drawn
      * @param lighting initial light values
      */
-    public WaterView(AssetManager assets, GeneratedWorld world, WaterLighting lighting) {
+    public WaterView(AssetManager assets, GeneratedWorld world, SceneLighting lighting) {
         material = new Material(assets, MATERIAL);
         material.setColor("ShallowColor", SHALLOW);
         material.setColor("DeepColor", DEEP);
@@ -64,7 +64,7 @@ public final class WaterView {
      *
      * @param lighting new light values
      */
-    public void setLighting(WaterLighting lighting) {
+    public void setLighting(SceneLighting lighting) {
         material.setVector3("SunDirection", lighting.sunDirection().normalize());
         material.setColor("SunColor", lighting.sun());
         material.setColor("AmbientColor", lighting.ambient());

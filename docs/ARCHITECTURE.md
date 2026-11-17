@@ -28,7 +28,7 @@ Versions are pinned in `gradle.properties`.
 | `world.model` | Generated world data with no engine types: terrain, rivers, regions, scenery, cabin, village, paths, locations | Implemented |
 | `world.query` | Walkability rules, collision, grid navigation | Implemented |
 | `world.render` | Terrain, water, instanced scenery, cabin and village drawing | Implemented |
-| `world` | `WorldSimulation` (authoritative state, fixed 20 Hz steps via `FixedStep`), spawn points, survival actions; seeded terrain and water bodies (rivers, lakes, ice) with analytic queries | Implemented |
+| `world` | `WorldSimulation` (authoritative state), spawn points; the standalone `GeneratedWorld` module (seeded terrain, water bodies with ice, bushes; separate from `world.gen`/`world.model`, see `docs/development/ARCHITECTURE_GUIDE.md`) | Implemented, not yet wired into the game |
 | `time` | Game clock (`WorldClock`), day phases, clock tuning; no engine types | Implemented |
 | `survival` | A player's needs (`Survival`) and the stove (`Hearth`), with tuning records and read-only snapshots; no engine types | Implemented (Phase A) |
 | `player` | Player identity, state, input and movement, no engine types | Implemented |
@@ -86,6 +86,7 @@ Format: Java `.properties`. See `docs/DECISIONS.md` for why JSON or YAML were no
 
 - `docs/development/WATER_SYSTEM.md`: water bodies, generation, rendering, detection, ice, troubleshooting.
 - `docs/development/WORLD_GENERATION_GUIDE.md`: pipeline and determinism rules.
+- `docs/development/FOLIAGE_WIND.md`: bushes and wind sway.
 - `docs/development/ARCHITECTURE_GUIDE.md`: structure and design decisions for the world and water code.
 
 ## Known gaps
