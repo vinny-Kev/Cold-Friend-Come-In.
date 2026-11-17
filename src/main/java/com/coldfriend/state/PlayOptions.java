@@ -12,11 +12,12 @@ import java.util.OptionalInt;
  *        or {@code river}
  * @param startMinute the time of day on day 1 that the game starts at, in minutes after midnight
  * @param scenario a development script such as {@code inventory}, or empty for none
+ * @param showCreature development only: draw the creature and its state
  */
-public record PlayOptions(String spawn, int startMinute, String scenario) {
+public record PlayOptions(String spawn, int startMinute, String scenario, boolean showCreature) {
 
     /** A normal game: start in the cabin at 07:00 on day 1 with no script. */
-    public static final PlayOptions NORMAL = new PlayOptions("cabin", ClockParameters.DEFAULT.newGameStart(), "");
+    public static final PlayOptions NORMAL = new PlayOptions("cabin", ClockParameters.DEFAULT.newGameStart(), "", false);
 
     /**
      * Reads the {@code dev.time} development setting: a start time, not a lighting mode. The lighting follows the

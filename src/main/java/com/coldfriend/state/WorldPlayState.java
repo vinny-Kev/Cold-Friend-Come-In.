@@ -3,7 +3,6 @@ package com.coldfriend.state;
 import com.coldfriend.assets.PropCatalog;
 import com.coldfriend.audio.Ambience;
 import com.coldfriend.audio.Footsteps;
-import com.coldfriend.audio.StepCounter;
 import com.coldfriend.core.GameSettings;
 import com.coldfriend.input.GameplayInput;
 import com.coldfriend.interaction.ActionResult;
@@ -18,9 +17,12 @@ import com.coldfriend.item.ItemStack;
 import com.coldfriend.player.PlayerId;
 import com.coldfriend.player.PlayerInput;
 import com.coldfriend.player.PlayerMovement;
+import com.coldfriend.player.StepCounter;
 import com.coldfriend.player.PlayerState;
 import com.coldfriend.survival.HearthStatus;
+import com.coldfriend.creature.CreatureStatus;
 import com.coldfriend.ui.ShadowText;
+import com.coldfriend.world.render.CreatureDebugView;
 import com.coldfriend.ui.SurvivalHud;
 import com.coldfriend.world.SpawnPoints;
 import com.coldfriend.world.SurvivalActions;
@@ -103,6 +105,8 @@ public final class WorldPlayState extends BaseAppState {
     private ShadowText selectedText;
     private ShadowText toast;
     private SurvivalHud survivalHud;
+    private CreatureDebugView creatureView;
+    private ShadowText creatureText;
     private SkyLighting sky;
     private boolean paused;
     private Footsteps footsteps;
@@ -239,6 +243,11 @@ public final class WorldPlayState extends BaseAppState {
         selectedText = hudText(font, HUD_SCALE);
         toast = hudText(font, PROMPT_SCALE);
         survivalHud = new SurvivalHud(font);
+        if (options.showCreature()) {
+            creatureView = new CreatureDebugView(app.getAssetManager());
+            scene.root().attachChild(creatureView.root());
+            creatureText = hudText(font, HUD_SCALE);
+        }
         LOG.info("World ready to play: seed={} props={} items={} player at {},{} cabin at {},{}", world.seed(),
                 world.placements().size(), simulation.worldItems().size(), player.x(), player.z(),
                 world.cabin().footprint().x(), world.cabin().footprint().z());
@@ -253,6 +262,9 @@ public final class WorldPlayState extends BaseAppState {
         simple.getGuiNode().attachChild(selectedText);
         simple.getGuiNode().attachChild(toast);
         simple.getGuiNode().attachChild(survivalHud.root());
+        if (creatureText != null) {
+            simple.getGuiNode().attachChild(creatureText);
+        }
         survivalHud.refreshSoon();
         updateLighting();
         simple.getViewPort().addProcessor(fogProcessor);
@@ -281,6 +293,9 @@ public final class WorldPlayState extends BaseAppState {
         selectedText.removeFromParent();
         toast.removeFromParent();
         survivalHud.root().removeFromParent();
+        if (creatureText != null) {
+            creatureText.removeFromParent();
+        }
         scene.detach();
         if (ambience != null) {
             ambience.stop();
@@ -310,6 +325,8 @@ public final class WorldPlayState extends BaseAppState {
         selectedText = null;
         toast = null;
         survivalHud = null;
+        creatureView = null;
+        creatureText = null;
         sky = null;
     }
 
@@ -348,11 +365,29 @@ public final class WorldPlayState extends BaseAppState {
             showPrompt(camera);
         }
         updateHud(tpf, camera);
+        if (creatureView != null) {
+            showCreature(camera);
+        }
         if (survivalHud.due(tpf)) {
             survivalHud.show(simulation.day(), simulation.minuteOfDay(), simulation.phase(),
                     simulation.survival(PlayerId.LOCAL), simulation.hearth(), camera.getWidth(), camera.getHeight());
         }
         runScenario(tpf);
+    }
+
+    /** Development only: marks the creature and writes what it is doing. Reads a snapshot; changes nothing. */
+    private void showCreature(Camera camera) {
+        java.util.Optional<CreatureStatus> status = simulation.creatureStatus();
+        if (status.isEmpty()) {
+            creatureText.setText("Creature: none in this world");
+            return;
+        }
+        CreatureStatus now = status.get();
+        creatureView.update(now, world.terrain().heightAt(now.x(), now.z()));
+        creatureText.setText(String.format(java.util.Locale.ROOT,
+                "Creature %s  at %.0f, %.0f  memories %d  route left %d",
+                now.mode(), now.x(), now.z(), now.observations(), now.routePointsLeft()));
+        creatureText.setLocalTranslation(HUD_MARGIN, camera.getHeight() - HUD_MARGIN - 120f, 0f);
     }
 
     /** Sets the sky, sun, ambient light and fog colour for the current game time. */

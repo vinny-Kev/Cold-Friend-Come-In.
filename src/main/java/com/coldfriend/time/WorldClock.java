@@ -53,6 +53,11 @@ public final class WorldClock {
         return (int) (step / stepsPerDay) + 1;
     }
 
+    /** @return game minutes since the start of day 1, counting from the first step; never decreases */
+    public double totalMinutes() {
+        return (double) step * MINUTES_PER_DAY / stepsPerDay;
+    }
+
     /** @return minutes after midnight, from 0 to just under 1440 */
     public double minuteOfDay() {
         return (double) (step % stepsPerDay) * MINUTES_PER_DAY / stepsPerDay;

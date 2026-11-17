@@ -161,3 +161,27 @@ Each entry: the decision, why, and what was considered. Entries marked **Open** 
 **Why:** without a firewood source a run ends after about a day, and without a restart a death is a dead end. Felling trees would need scenery removal from instanced chunks and collision, which is much more work for the same continuity. Restarting the same seed keeps the owner's proposed default (roadmap open decision 4) and keeps the world deterministic.
 **Alternatives:** chopping trees with an axe (deferred, see the design); a new random seed on restart (the other option in the roadmap); wood that never runs out (rejected: removes the reason to go out).
 **Status:** implemented with tests. The counts and distances are proposals to tune in playtest.
+
+## D-036: The creature perceives through its own sight and hearing, and decides only from memory
+
+**Decision:** Phase B's creature (`creature` package) senses the world through `Perception`, the only class that reads the player's state. Sight is a cone (creature: 120 degrees wide, 60 tall; player's look: 70 by 50) with range by time of day (creature 60, 35, 15 m; player's own range is separate and not yet confirmed). Hearing gives approximate positions (1.5 m error) and walls cut loudness by 0.35 each. Observations are kept in a bounded `Memory` with linear decay. The brain reads only memory.
+**Why:** the brief asks for an intelligent, not omniscient, predator, and that is only enforced by keeping perception separate from decisions and testing it.
+**Status:** implemented with tests, including a two-world information barrier test. The player's range values (100, 60 and 30 m) are confirmed by the owner.
+
+## D-037: Trees block sight; the placement line check does not change
+
+**Decision:** `WorldCollision.sightClear` is the test for what a creature can see through: it uses the full obstruction test, including trees, rocks and placed objects. `lineClear`, which placement uses, is unchanged.
+**Why:** placement needs its existing behaviour, and a creature that sees through trees would break the design's use of cover.
+**Status:** implemented.
+
+## D-038: `PathFinder` lives in `world/query` and takes an optional search budget
+
+**Decision:** the path finder moves from `world/gen` to `world/query` and is public. A budgeted search (4 000 cells for the creature) gives up with no route when it runs out; the unlimited form is kept for generation. The sort-key helper moves to `world/query/SearchKey`.
+**Why:** the creature needs a shared search, not a copy. Putting it in `query` avoids a `query` → `gen` dependency.
+**Status:** implemented. Golden-value generation tests pass unchanged.
+
+## D-039: The creature has a fixed reserved id
+
+**Decision:** the creature's `EntityId` is `CreatureSimulation.ID` (1 000 000 000). Items keep their own counter from 1.
+**Why:** sharing the item counter changed the ids of placed items and broke stable-id tests. The creature is not an item and cannot be used as one.
+**Status:** implemented.

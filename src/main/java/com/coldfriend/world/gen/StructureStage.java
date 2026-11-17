@@ -1,5 +1,6 @@
 package com.coldfriend.world.gen;
 
+import com.coldfriend.world.query.PathFinder;
 import com.coldfriend.world.model.Cabin;
 import com.coldfriend.world.model.Footprint;
 import com.coldfriend.world.model.HeightField;

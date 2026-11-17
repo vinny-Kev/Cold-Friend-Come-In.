@@ -1,5 +1,10 @@
 package com.coldfriend.world;
 
+import com.coldfriend.creature.CreatureSimulation;
+import com.coldfriend.creature.CreatureStatus;
+import com.coldfriend.creature.SenseEvent;
+import com.coldfriend.creature.SenseKind;
+import com.coldfriend.creature.SenseLog;
 import com.coldfriend.entity.EntityId;
 import com.coldfriend.interaction.ActionResult;
 import com.coldfriend.interaction.Interactable;
@@ -13,6 +18,7 @@ import com.coldfriend.player.PlayerId;
 import com.coldfriend.player.PlayerInput;
 import com.coldfriend.player.PlayerMovement;
 import com.coldfriend.player.PlayerState;
+import com.coldfriend.player.StepCounter;
 import com.coldfriend.survival.Hearth;
 import com.coldfriend.survival.HearthParameters;
 import com.coldfriend.survival.HearthStatus;
@@ -24,6 +30,7 @@ import com.coldfriend.time.ClockParameters;
 import com.coldfriend.time.DayPhase;
 import com.coldfriend.time.WorldClock;
 import com.coldfriend.world.items.Deadfall;
+import com.coldfriend.world.gen.RandomStreams;
 import com.coldfriend.world.items.ItemActions;
 import com.coldfriend.world.items.PlacementCheck;
 import com.coldfriend.world.items.PlacementProblem;
@@ -52,6 +59,8 @@ import java.util.Optional;
 public final class WorldSimulation {
 
     private static final float DOOR_REACH = 2.2f;
+    /** Distance walked between two footsteps the creature can hear, in metres. */
+    private static final float FOOTSTEP_STRIDE = 2.5f;
     /** How close to the stove's centre a player must be to tend it, in metres. */
     private static final float HEARTH_REACH = 1.6f;
     private static final float AIM_EYE_HEIGHT = 1.65f;
@@ -70,6 +79,9 @@ public final class WorldSimulation {
     private final Map<PlayerId, PlayerState> players = new LinkedHashMap<>();
     private final Map<PlayerId, Inventory> inventories = new LinkedHashMap<>();
     private final Map<PlayerId, Survival> survival = new LinkedHashMap<>();
+    private final Map<PlayerId, StepCounter> strides = new LinkedHashMap<>();
+    private final SenseLog senses = new SenseLog();
+    private final Optional<CreatureSimulation> creature;
     private final FixedStep fixedStep = new FixedStep();
     private final WorldClock clock;
     private final Hearth hearth = new Hearth(HearthParameters.DEFAULT);
@@ -114,6 +126,8 @@ public final class WorldSimulation {
         this.itemActions = new ItemActions(catalog, worldItems, validator, collision);
         StartingItems.populate(world, catalog, worldItems, validator);
         this.deadfall = new Deadfall(world, catalog, collision, worldItems, validator);
+        this.creature = CreatureSimulation.spawn(world, collision, CreatureSimulation.ID,
+                new RandomStreams(world.seed(), world.generationVersion(), 0));
         deadfall.scatter(clock.day(), Deadfall.INITIAL_STACKS);
     }
 
@@ -144,6 +158,7 @@ public final class WorldSimulation {
         }
         inventories.put(id, inventory);
         survival.put(id, new Survival(SurvivalParameters.DEFAULT));
+        strides.put(id, new StepCounter(FOOTSTEP_STRIDE));
         return player;
     }
 
@@ -201,6 +216,21 @@ public final class WorldSimulation {
             throw new IllegalArgumentException("No player " + id);
         }
         return needs.status();
+    }
+
+    /** @return the creature, if one could be placed in this world */
+    public Optional<CreatureSimulation> creature() {
+        return creature;
+    }
+
+    /** @return a snapshot of the creature for the debug overlay, if there is one */
+    public Optional<CreatureStatus> creatureStatus() {
+        return creature.map(CreatureSimulation::status);
+    }
+
+    /** @return how many sense events the player has ever caused (for tests and development) */
+    public long sensesRaised() {
+        return senses.raised();
     }
 
     /** @return a snapshot of the cabin's hearth */
@@ -323,6 +353,7 @@ public final class WorldSimulation {
             return survivalActions.tendHearth(inventories.get(request.player()), hearth);
         }
         cabinDoorOpen = !cabinDoorOpen;
+        sense(SenseKind.DOOR, cabinDoor.x(), cabinDoor.z());
         collision.setDoorClosed(!cabinDoorOpen);
         return ActionResult.ok(cabinDoorOpen ? "You open the door." : "You close the door.");
     }
@@ -338,7 +369,12 @@ public final class WorldSimulation {
         if (isDead(id)) {
             return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
         }
-        return itemActions.pickUp(players.get(id), inventories.get(id), item);
+        Optional<WorldItem> found = worldItems.get(item);
+        ActionResult result = itemActions.pickUp(players.get(id), inventories.get(id), item);
+        if (result.success() && found.isPresent()) {
+            sense(SenseKind.PICK_UP, found.get().x(), found.get().z());
+        }
+        return result;
     }
 
     /**
@@ -353,7 +389,11 @@ public final class WorldSimulation {
         if (isDead(id)) {
             return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
         }
-        return itemActions.drop(players.get(id), inventories.get(id), slot, quantity);
+        ActionResult result = itemActions.drop(players.get(id), inventories.get(id), slot, quantity);
+        if (result.success()) {
+            sense(SenseKind.DROP, players.get(id).x(), players.get(id).z());
+        }
+        return result;
     }
 
     /**
@@ -370,7 +410,11 @@ public final class WorldSimulation {
         if (isDead(id)) {
             return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
         }
-        return itemActions.place(players.get(id), inventories.get(id), slot, x, z, yaw);
+        ActionResult result = itemActions.place(players.get(id), inventories.get(id), slot, x, z, yaw);
+        if (result.success()) {
+            sense(SenseKind.PLACE, x, z);
+        }
+        return result;
     }
 
     /**
@@ -428,7 +472,14 @@ public final class WorldSimulation {
         for (PlayerState player : players.values()) {
             PlayerInput input = survival.get(player.id()).dead() ? PlayerInput.NONE
                     : inputs.getOrDefault(player.id(), PlayerInput.NONE);
+            float fromX = player.x();
+            float fromZ = player.z();
             movement.move(player, input, FixedStep.STEP_SECONDS);
+            float dx = player.x() - fromX;
+            float dz = player.z() - fromZ;
+            if (strides.get(player.id()).advance((float) Math.sqrt(dx * dx + dz * dz))) {
+                sense(input.sprint() ? SenseKind.FOOTSTEP_SPRINT : SenseKind.FOOTSTEP_WALK, player.x(), player.z());
+            }
         }
         if (clock.advanceStep()) {
             deadfall.scatter(clock.day(), Deadfall.DAILY_STACKS);
@@ -443,6 +494,15 @@ public final class WorldSimulation {
                     > PlayerMovement.WADE_DEPTH;
             survival.get(player.id()).update(minutes, inside, wading, phase, heat);
         }
+        if (creature.isPresent()) {
+            creature.get().step(FixedStep.STEP_SECONDS, players.values(), senses.events(), clock.phase(),
+                    clock.totalMinutes());
+        }
+        senses.clear();
+    }
+
+    private void sense(SenseKind kind, float x, float z) {
+        senses.add(new SenseEvent(kind, x, z, clock.totalMinutes()));
     }
 
     /** The world item the player is looking at, within reach: the one nearest to the line of sight. */

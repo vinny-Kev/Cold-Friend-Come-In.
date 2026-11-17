@@ -39,6 +39,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private static final String SPAWN_KEY = "dev.spawn";
     private static final String TIME_KEY = "dev.time";
     private static final String SCENARIO_KEY = "dev.scenario";
+    private static final String CREATURE_KEY = "dev.creature";
     private static final String FPS_KEY = "dev.showFps";
     private static final String AUTOSTART_KEY = "dev.autostart";
     private static final String SCREENSHOT_KEY = "dev.screenshot";
@@ -258,7 +259,8 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
             worldState = new WorldPlayState(world, catalog, items, this, new PlayOptions(
                     config.optionalString(SPAWN_KEY).orElse("cabin"),
                     startMinute(),
-                    scenario));
+                    scenario,
+                    config.optionalString(CREATURE_KEY).isPresent()));
             currentWorld = world;
             stateManager.attach(worldState);
         } catch (IOException | RuntimeException e) {

@@ -1,4 +1,4 @@
-package com.coldfriend.audio;
+package com.coldfriend.player;
 
 /**
  * Counts how far a person has walked and says when a footstep is due. Engine-free so it can be tested directly.

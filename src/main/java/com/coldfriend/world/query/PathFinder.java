@@ -1,10 +1,9 @@
-package com.coldfriend.world.gen;
+package com.coldfriend.world.query;
 
 import com.coldfriend.world.model.Footprint;
 import com.coldfriend.world.model.HeightField;
 import com.coldfriend.world.model.WaterMap;
 import com.coldfriend.world.model.WorldPath.PathPoint;
-import com.coldfriend.world.query.TerrainRules;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,7 +14,7 @@ import java.util.PriorityQueue;
  * Finds walking routes across the terrain with A* search on a grid. Steep ground and building footprints are
  * impassable. Deep water is allowed at a high price, because a path that must cross a river gets a ford there.
  */
-final class PathFinder {
+public final class PathFinder {
 
     private static final float SLOPE_WEIGHT = 6f;
     private static final float WADE_WEIGHT = 2f;
@@ -30,7 +29,13 @@ final class PathFinder {
     private final int side;
     private final float[] cost;
 
-    PathFinder(HeightField terrain, WaterMap water, float grid, List<Footprint> blocked) {
+    /**
+     * @param terrain ground heights
+     * @param water water map
+     * @param grid spacing of the search grid in metres
+     * @param blocked solid footprints a route may not cross
+     */
+    public PathFinder(HeightField terrain, WaterMap water, float grid, List<Footprint> blocked) {
         this.grid = grid;
         this.side = (int) (terrain.sizeMeters() / grid) + 1;
         this.cost = new float[side * side];
@@ -57,10 +62,22 @@ final class PathFinder {
     }
 
     /**
+     * Finds a route with no limit on the search.
+     *
      * @return the route from start to goal, or an empty list if there is none; the first and last points are
      *         exactly the start and goal
      */
-    List<PathPoint> find(float startX, float startZ, float goalX, float goalZ) {
+    public List<PathPoint> find(float startX, float startZ, float goalX, float goalZ) {
+        return find(startX, startZ, goalX, goalZ, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Finds a route, giving up after a fixed amount of work so one search cannot stall the game.
+     *
+     * @param maxExpansions most grid cells the search may examine before it gives up
+     * @return the route, or an empty list if there is none or the search ran out of budget
+     */
+    public List<PathPoint> find(float startX, float startZ, float goalX, float goalZ, int maxExpansions) {
         int start = nodeAt(startX, startZ);
         int goal = nodeAt(goalX, goalZ);
         float[] best = new float[side * side];
@@ -70,11 +87,15 @@ final class PathFinder {
         Arrays.fill(parent, -1);
         best[start] = 0f;
         PriorityQueue<Long> queue = new PriorityQueue<>();
-        queue.add(Maths.sortKey(heuristic(start, goal), start));
+        queue.add(SearchKey.of(heuristic(start, goal), start));
+        int expansions = 0;
         while (!queue.isEmpty()) {
             int current = (int) (queue.poll() & INDEX_MASK);
             if (closed[current]) {
                 continue;
+            }
+            if (++expansions > maxExpansions) {
+                return List.of();
             }
             closed[current] = true;
             if (current == goal) {
@@ -109,7 +130,7 @@ final class PathFinder {
             if (through < best[next]) {
                 best[next] = through;
                 parent[next] = current;
-                queue.add(Maths.sortKey(through + heuristic(next, goal), next));
+                queue.add(SearchKey.of(through + heuristic(next, goal), next));
             }
         }
     }
