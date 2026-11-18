@@ -6,11 +6,6 @@ import com.coldfriend.world.model.CabinLayout.Furnishing;
 import com.coldfriend.world.model.CabinLayout.Part;
 import com.coldfriend.world.model.Footprint;
 import com.jme3.asset.AssetManager;
-import com.jme3.bounding.BoundingBox;
-import com.jme3.math.Vector3f;
-import com.jme3.scene.Spatial;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import com.jme3.light.PointLight;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
@@ -42,7 +37,6 @@ final class CabinView {
     private static final ColorRGBA TABLE_COLOR = new ColorRGBA(0.45f, 0.33f, 0.22f, 1f);
     private static final ColorRGBA FIRE_LIGHT = new ColorRGBA(1.0f, 0.62f, 0.3f, 1f);
     private static final ColorRGBA LANTERN_LIGHT = new ColorRGBA(1.0f, 0.68f, 0.35f, 1f);
-    private static final Logger LOG = LoggerFactory.getLogger(CabinView.class);
     private static final String TABLE_MODEL = "models/furniture/table.glb";
     private static final float ROOF_PITCH = 25f * FastMath.DEG_TO_RAD;
     private static final float ROOF_OVERHANG = 0.4f;
@@ -174,40 +168,11 @@ final class CabinView {
         return openings;
     }
 
-    /**
-     * Places the table's model, scaled to the table's footprint and height and standing on the floor. Falls back to the
-     * plain box when the model cannot be loaded, and says so in the log.
-     *
-     * @return true if the model was placed
-     */
-    private boolean buildTableModel(Node parent, Part p, float height, AssetManager assets) {
-        Spatial model;
-        try {
-            model = assets.loadModel(TABLE_MODEL);
-        } catch (RuntimeException e) {
-            LOG.warn("Could not load the table model {}; drawing a box instead", TABLE_MODEL, e);
-            return false;
-        }
-        Node holder = new Node("table");
-        holder.attachChild(model);
-        holder.updateGeometricState();
-        BoundingBox bounds = (BoundingBox) holder.getWorldBound();
-        Vector3f centre = bounds.getCenter();
-        Vector3f extent = bounds.getExtent(null);
-        float sx = p.halfSide() / extent.x;
-        float sy = height / (2f * extent.y);
-        float sz = p.halfForward() / extent.z;
-        model.setLocalScale(sx, sy, sz);
-        model.setLocalTranslation(-centre.x * sx, -(centre.y - extent.y) * sy, -centre.z * sz);
-        holder.setLocalTranslation(p.side(), FLOOR_THICKNESS, p.forward());
-        parent.attachChild(holder);
-        return true;
-    }
-
     private void buildFurniture(Footprint f, AssetManager assets) {
         for (Furnishing item : CabinLayout.furnishings(f)) {
             Part p = item.part();
-            if ("table".equals(item.id()) && buildTableModel(root, p, item.height(), assets)) {
+            if ("table".equals(item.id()) && RenderParts.fitModel(assets, TABLE_MODEL, root, p.halfSide(),
+                    item.height(), p.halfForward(), p.side(), FLOOR_THICKNESS, p.forward()) != null) {
                 continue;
             }
             ColorRGBA color = switch (item.id()) {

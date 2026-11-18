@@ -59,6 +59,8 @@ import java.util.Optional;
 public final class WorldSimulation {
 
     private static final float DOOR_REACH = 2.2f;
+    /** Ids for the car's round obstacles; far above the item counter, like the creature's id. */
+    private static final long CAR_ID = 2_000_000_000L;
     /** Distance walked between two footsteps the creature can hear, in metres. */
     private static final float FOOTSTEP_STRIDE = 2.5f;
     /** How close to the stove's centre a player must be to tend it, in metres. */
@@ -82,6 +84,7 @@ public final class WorldSimulation {
     private final Map<PlayerId, StepCounter> strides = new LinkedHashMap<>();
     private final SenseLog senses = new SenseLog();
     private final Optional<CreatureSimulation> creature;
+    private final Optional<ParkedCar> car;
     private final FixedStep fixedStep = new FixedStep();
     private final WorldClock clock;
     private final Hearth hearth = new Hearth(HearthParameters.DEFAULT);
@@ -126,6 +129,13 @@ public final class WorldSimulation {
         this.itemActions = new ItemActions(catalog, worldItems, validator, collision);
         StartingItems.populate(world, catalog, worldItems, validator);
         this.deadfall = new Deadfall(world, catalog, collision, worldItems, validator);
+        this.car = ParkedCar.find(world, collision);
+        car.ifPresent(parked -> {
+            float[] centres = parked.obstacleCentres();
+            for (int i = 0; i < centres.length; i += 2) {
+                collision.addObstacle(new EntityId(CAR_ID + i / 2), centres[i], centres[i + 1], ParkedCar.RADIUS);
+            }
+        });
         this.creature = CreatureSimulation.spawn(world, collision, CreatureSimulation.ID,
                 new RandomStreams(world.seed(), world.generationVersion(), 0));
         deadfall.scatter(clock.day(), Deadfall.INITIAL_STACKS);
@@ -216,6 +226,11 @@ public final class WorldSimulation {
             throw new IllegalArgumentException("No player " + id);
         }
         return needs.status();
+    }
+
+    /** @return the car parked beside the cabin, if one fits in this world */
+    public Optional<ParkedCar> car() {
+        return car;
     }
 
     /** @return the creature, if one could be placed in this world */

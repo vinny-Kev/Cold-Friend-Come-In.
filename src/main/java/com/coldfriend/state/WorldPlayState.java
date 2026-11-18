@@ -222,6 +222,8 @@ public final class WorldPlayState extends BaseAppState {
         simulation = new WorldSimulation(world, itemCatalog, options.startMinute());
         player = simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, options.spawn()));
         scene = new WorldScene(world, catalog, app.getAssetManager());
+        simulation.car().ifPresent(car -> scene.addCar(car, world.terrain().heightAt(car.x(), car.z()),
+                app.getAssetManager()));
         sky = new SkyLighting(simulation.clockParameters());
         sky.addTo(scene.root());
         itemsView = new WorldItemsView(catalog, itemCatalog);
