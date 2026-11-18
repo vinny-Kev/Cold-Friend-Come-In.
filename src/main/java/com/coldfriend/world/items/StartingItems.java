@@ -3,6 +3,7 @@ package com.coldfriend.world.items;
 import com.coldfriend.item.ItemCatalog;
 import com.coldfriend.item.ItemId;
 import com.coldfriend.item.ItemStack;
+import com.coldfriend.world.SurvivalActions;
 import com.coldfriend.world.model.CabinLayout;
 import com.coldfriend.world.model.CabinLayout.Surface;
 import com.coldfriend.world.model.WorldData;
@@ -14,7 +15,6 @@ import java.util.List;
  */
 public final class StartingItems {
 
-    private static final ItemId FIREWOOD = new ItemId("firewood");
     private static final ItemId WATER = new ItemId("water_container");
     private static final ItemId BRANCH = new ItemId("branch");
     private static final float STOVE_SIDE = 2.2f;
@@ -35,9 +35,9 @@ public final class StartingItems {
      * @param validator used for the resting height
      */
     public static void populate(WorldData world, ItemCatalog catalog, WorldItems items, PlacementValidator validator) {
-        if (catalog.contains(FIREWOOD)) {
+        if (catalog.contains(SurvivalActions.FIREWOOD)) {
             float[] spot = CabinLayout.point(world.cabin(), STOVE_SIDE, STOVE_FORWARD);
-            items.spawn(new ItemStack(FIREWOOD, 3), spot[0], validator.restHeight(spot[0], spot[1]), spot[1], 0f,
+            items.spawn(new ItemStack(SurvivalActions.FIREWOOD, 3), spot[0], validator.restHeight(spot[0], spot[1]), spot[1], 0f,
                     false);
         }
         List<Surface> tables = CabinLayout.supportSurfaces(world.cabin());

@@ -33,19 +33,44 @@ public final class PlayerMovement {
     }
 
     /**
-     * Advances one player by one frame.
+     * Turns the player's head by the mouse movement of one frame. Look is applied every frame, not per simulation
+     * step, so the camera answers the mouse at once; it is a change of angle, not a rate, so it does not depend on
+     * the frame rate.
      *
      * @param player the player's state, changed in place
      * @param input what the player asked for
-     * @param dt seconds since the last frame
      */
-    public void step(PlayerState player, PlayerInput input, float dt) {
-        float seconds = Math.min(dt, MAX_STEP_SECONDS);
+    public void look(PlayerState player, PlayerInput input) {
         // Turning right means a smaller heading, because heading 0 faces +z and positive turns toward +x.
         float yaw = player.yaw() - input.turn();
         float pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, player.pitch() + input.look()));
         player.setLook(yaw, pitch);
+    }
 
+    /**
+     * Puts a player where something else carries them (a car they are riding), on the ground at that spot.
+     *
+     * @param player the player, changed in place
+     * @param x world x, in metres
+     * @param z world z, in metres
+     */
+    public void ride(PlayerState player, float x, float z) {
+        player.beginStep();
+        player.setPosition(x, world.terrain().heightAt(x, z), z);
+    }
+
+    /**
+     * Moves one player for one simulation step. Remembers where the step started so drawing can blend between
+     * steps.
+     *
+     * @param player the player's state, changed in place
+     * @param input what the player asked for; only the movement keys are used here
+     * @param dt the step length in seconds; capped at {@link #MAX_STEP_SECONDS}
+     */
+    public void move(PlayerState player, PlayerInput input, float dt) {
+        player.beginStep();
+        float seconds = Math.min(dt, MAX_STEP_SECONDS);
+        float yaw = player.yaw();
         float sin = (float) Math.sin(yaw);
         float cos = (float) Math.cos(yaw);
         float wantX = input.forward() * sin - input.strafe() * cos;

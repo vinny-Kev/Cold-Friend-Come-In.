@@ -164,6 +164,28 @@ public final class WorldCollision {
         return true;
     }
 
+    /**
+     * Whether a sight line between two points is free of everything that stands in the way: buildings, a closed door,
+     * trees and rocks, and placed objects. Unlike {@link #lineClear}, which placement uses and which ignores scenery,
+     * this is the test for what a creature can see through.
+     *
+     * @param radius half the thickness of the line, in metres
+     * @return true if nothing blocks the line
+     */
+    public boolean sightClear(float fromX, float fromZ, float toX, float toZ, float radius) {
+        float dx = toX - fromX;
+        float dz = toZ - fromZ;
+        float length = (float) Math.sqrt(dx * dx + dz * dz);
+        int steps = Math.max(1, (int) Math.ceil(length / LINE_STEP));
+        for (int k = 0; k <= steps; k++) {
+            float t = (float) k / steps;
+            if (obstructed(fromX + dx * t, fromZ + dz * t, radius)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static boolean touches(Circle c, float x, float z, float radius) {
         float ox = x - c.x();
         float oz = z - c.z();

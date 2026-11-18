@@ -3,6 +3,7 @@ package com.coldfriend.world.render;
 import com.coldfriend.assets.PropCatalog;
 import com.coldfriend.assets.PropKind;
 import com.coldfriend.assets.PropModel;
+import com.coldfriend.world.ParkedCar;
 import com.coldfriend.world.model.HeightField;
 import com.coldfriend.world.model.Placement;
 import com.coldfriend.world.model.WorldData;
@@ -94,6 +95,25 @@ public final class WorldScene {
     /** @param open whether the cabin door is drawn open */
     public void setCabinDoorOpen(boolean open) {
         cabin.setDoorOpen(open);
+    }
+
+    /**
+     * Draws the parked car.
+     *
+     * @param car where the car is
+     * @param groundY the ground under the car, in metres
+     * @param assets the engine asset manager
+     * @return the car's drawing, to move with the simulation
+     */
+    public CarView addCar(ParkedCar car, float groundY, AssetManager assets) {
+        CarView view = new CarView(car, groundY, assets);
+        root.attachChild(view.root());
+        return view;
+    }
+
+    /** @param level the cabin stove fire's level from the simulation; 0 when it is not lit */
+    public void setCabinFireLevel(float level) {
+        cabin.setFireLevel(level);
     }
 
     /**

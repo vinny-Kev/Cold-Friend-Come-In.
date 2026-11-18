@@ -1,6 +1,7 @@
 package com.coldfriend.world.render;
 
 import com.jme3.asset.AssetManager;
+import com.jme3.bounding.BoundingBox;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.renderer.queue.RenderQueue.Bucket;
@@ -11,6 +12,7 @@ import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Quad;
@@ -18,10 +20,13 @@ import com.jme3.util.BufferUtils;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Small drawing helpers shared by the cabin and village views: lit materials, boxes and triangles. */
 final class RenderParts {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RenderParts.class);
     private static final float ROOF_PITCH = 25f * FastMath.DEG_TO_RAD;
     private static final float ROOF_THICKNESS = 0.06f;
     private static final String LIGHTING = "Common/MatDefs/Light/Lighting.j3md";
@@ -215,5 +220,41 @@ final class RenderParts {
         mesh.updateBound();
         mesh.updateCounts();
         return mesh;
+    }
+
+    /**
+     * Loads a model, scales it to fit a box and stands it on the floor of a parent node.
+     *
+     * @param halfX half the model's width, in metres (x)
+     * @param height the model's height, in metres
+     * @param halfZ half the model's depth, in metres (z)
+     * @param x where its centre sits, x
+     * @param y where its bottom sits, y
+     * @param z where its centre sits, z
+     * @return the node holding the model, or null if the model cannot be loaded (the caller draws a fallback)
+     */
+    static Node fitModel(AssetManager assets, String path, Node parent, float halfX, float height, float halfZ,
+            float x, float y, float z) {
+        Spatial model;
+        try {
+            model = assets.loadModel(path);
+        } catch (RuntimeException e) {
+            LOG.warn("Could not load the model {}; drawing a fallback instead", path, e);
+            return null;
+        }
+        Node holder = new Node(path);
+        holder.attachChild(model);
+        holder.updateGeometricState();
+        BoundingBox bounds = (BoundingBox) holder.getWorldBound();
+        Vector3f centre = bounds.getCenter();
+        Vector3f extent = bounds.getExtent(null);
+        float sx = halfX / extent.x;
+        float sy = height / (2f * extent.y);
+        float sz = halfZ / extent.z;
+        model.setLocalScale(sx, sy, sz);
+        model.setLocalTranslation(-centre.x * sx, -(centre.y - extent.y) * sy, -centre.z * sz);
+        holder.setLocalTranslation(x, y, z);
+        parent.attachChild(holder);
+        return holder;
     }
 }

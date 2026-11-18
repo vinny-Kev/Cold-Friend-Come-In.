@@ -1,9 +1,15 @@
 package com.coldfriend.world;
 
+import com.coldfriend.creature.CreatureSimulation;
+import com.coldfriend.creature.CreatureStatus;
+import com.coldfriend.creature.SenseEvent;
+import com.coldfriend.creature.SenseKind;
+import com.coldfriend.creature.SenseLog;
 import com.coldfriend.entity.EntityId;
 import com.coldfriend.interaction.ActionResult;
 import com.coldfriend.interaction.Interactable;
 import com.coldfriend.interaction.InteractableKind;
+import com.coldfriend.interaction.InteractableRef;
 import com.coldfriend.interaction.InteractionRequest;
 import com.coldfriend.inventory.Inventory;
 import com.coldfriend.item.ItemCatalog;
@@ -12,6 +18,19 @@ import com.coldfriend.player.PlayerId;
 import com.coldfriend.player.PlayerInput;
 import com.coldfriend.player.PlayerMovement;
 import com.coldfriend.player.PlayerState;
+import com.coldfriend.player.StepCounter;
+import com.coldfriend.survival.Hearth;
+import com.coldfriend.survival.HearthParameters;
+import com.coldfriend.survival.HearthStatus;
+import com.coldfriend.survival.Heat;
+import com.coldfriend.survival.Survival;
+import com.coldfriend.survival.SurvivalParameters;
+import com.coldfriend.survival.SurvivalStatus;
+import com.coldfriend.time.ClockParameters;
+import com.coldfriend.time.DayPhase;
+import com.coldfriend.time.WorldClock;
+import com.coldfriend.world.items.Deadfall;
+import com.coldfriend.world.gen.RandomStreams;
 import com.coldfriend.world.items.ItemActions;
 import com.coldfriend.world.items.PlacementCheck;
 import com.coldfriend.world.items.PlacementProblem;
@@ -28,18 +47,28 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The authoritative game state of one world: players, their inventories, the cabin door, and the items lying or
- * placed in the world. It advances from player inputs and requests only, and knows nothing about rendering, the
- * camera or the input devices, so it could run on a server. Things that change over time, such as villagers and
- * the creature, will be added here.
+ * The authoritative game state of one world: players, their inventories and needs, the game clock, the cabin door
+ * and hearth, and the items lying or placed in the world. It advances from player inputs and requests only, and
+ * knows nothing about rendering, the camera or the input devices, so it could run on a server.
+ *
+ * <p>Time advances in fixed steps (see {@link FixedStep}). Each step runs, in this order: player movement, the
+ * clock, the hearth, then each player's needs. Each of those is its own class; this class only owns them and
+ * calls them in order. Other code reads the state through snapshots ({@link SurvivalStatus},
+ * {@link HearthStatus}) and changes it only through requests.
  */
 public final class WorldSimulation {
 
-    /** Stable id of the cabin door. */
-    public static final String CABIN_DOOR_ID = "cabin-door";
-    /** Prefix of the id of a world item as an interactable; the rest is the item's entity id. */
-    public static final String ITEM_PREFIX = "item:";
     private static final float DOOR_REACH = 2.2f;
+    /** Ids for the car's round obstacles; far above the item counter, like the creature's id. */
+    private static final long CAR_ID = 2_000_000_000L;
+    /** How close a player must be to the car to get in, in metres. */
+    private static final float VEHICLE_REACH = 2.5f;
+    /** How far from the car's centre a player stands when they get out, in metres. */
+    private static final float EXIT_DISTANCE = 2.4f;
+    /** Distance walked between two footsteps the creature can hear, in metres. */
+    private static final float FOOTSTEP_STRIDE = 2.5f;
+    /** How close to the stove's centre a player must be to tend it, in metres. */
+    private static final float HEARTH_REACH = 1.6f;
     private static final float AIM_EYE_HEIGHT = 1.65f;
     private static final float AIM_TOLERANCE = 0.45f;
     private static final float AIM_MIN_DISTANCE = 0.2f;
@@ -52,8 +81,22 @@ public final class WorldSimulation {
     private final WorldItems worldItems = new WorldItems();
     private final PlacementValidator validator;
     private final ItemActions itemActions;
+    private final Deadfall deadfall;
     private final Map<PlayerId, PlayerState> players = new LinkedHashMap<>();
     private final Map<PlayerId, Inventory> inventories = new LinkedHashMap<>();
+    private final Map<PlayerId, Survival> survival = new LinkedHashMap<>();
+    private final Map<PlayerId, StepCounter> strides = new LinkedHashMap<>();
+    private final SenseLog senses = new SenseLog();
+    private final Optional<CreatureSimulation> creature;
+    private final Optional<ParkedCar> car;
+    private final Optional<Vehicle> vehicle;
+    /** The player driving the car, or null when nobody is in it. */
+    private PlayerId driver;
+    private final FixedStep fixedStep = new FixedStep();
+    private final WorldClock clock;
+    private final Hearth hearth = new Hearth(HearthParameters.DEFAULT);
+    private final Interactable cabinHearth;
+    private final SurvivalActions survivalActions;
     private boolean cabinDoorOpen;
 
     /**
@@ -70,15 +113,34 @@ public final class WorldSimulation {
      * @param catalog the item definitions
      */
     public WorldSimulation(WorldData world, ItemCatalog catalog) {
+        this(world, catalog, ClockParameters.DEFAULT.newGameStart());
+    }
+
+    /**
+     * @param world the generated world, which never changes
+     * @param catalog the item definitions
+     * @param startMinute time of day the game starts at on day 1, in minutes after midnight
+     */
+    public WorldSimulation(WorldData world, ItemCatalog catalog, int startMinute) {
         this.world = world;
+        this.clock = new WorldClock(ClockParameters.DEFAULT, FixedStep.STEPS_PER_SECOND, startMinute);
+        this.survivalActions = new SurvivalActions(world, catalog, SurvivalParameters.DEFAULT);
         this.catalog = catalog;
         this.collision = new WorldCollision(world);
         this.movement = new PlayerMovement(world, collision);
         float[] doorway = CabinLayout.doorway(world.cabin());
-        this.cabinDoor = new Interactable(CABIN_DOOR_ID, InteractableKind.DOOR, doorway[0], doorway[1], DOOR_REACH);
+        this.cabinDoor = new Interactable(InteractableRef.CABIN_DOOR, doorway[0], doorway[1], DOOR_REACH);
+        float[] stove = stoveCentre(world);
+        this.cabinHearth = new Interactable(InteractableRef.CABIN_HEARTH, stove[0], stove[1], HEARTH_REACH);
         this.validator = new PlacementValidator(world, collision, worldItems, catalog);
         this.itemActions = new ItemActions(catalog, worldItems, validator, collision);
         StartingItems.populate(world, catalog, worldItems, validator);
+        this.deadfall = new Deadfall(world, catalog, collision, worldItems, validator);
+        this.car = ParkedCar.find(world, collision);
+        this.vehicle = this.car.map(parked -> new Vehicle(world, collision, parked, CAR_ID));
+        this.creature = CreatureSimulation.spawn(world, collision, CreatureSimulation.ID,
+                new RandomStreams(world.seed(), world.generationVersion(), 0));
+        deadfall.scatter(clock.day(), Deadfall.INITIAL_STACKS);
     }
 
     /** @return the generated world this simulation runs in */
@@ -107,6 +169,8 @@ public final class WorldSimulation {
             inventory.add(stack);
         }
         inventories.put(id, inventory);
+        survival.put(id, new Survival(SurvivalParameters.DEFAULT));
+        strides.put(id, new StepCounter(FOOTSTEP_STRIDE));
         return player;
     }
 
@@ -153,6 +217,69 @@ public final class WorldSimulation {
         return worldItems.all();
     }
 
+    /**
+     * @param id a player's identity
+     * @return a snapshot of that player's needs
+     * @throws IllegalArgumentException if there is no such player
+     */
+    public SurvivalStatus survival(PlayerId id) {
+        Survival needs = survival.get(id);
+        if (needs == null) {
+            throw new IllegalArgumentException("No player " + id);
+        }
+        return needs.status();
+    }
+
+    /** @return the car parked beside the cabin, if one fits in this world */
+    public Optional<ParkedCar> car() {
+        return car;
+    }
+
+    /** @return the creature, if one could be placed in this world */
+    public Optional<CreatureSimulation> creature() {
+        return creature;
+    }
+
+    /** @return a snapshot of the creature for the debug overlay, if there is one */
+    public Optional<CreatureStatus> creatureStatus() {
+        return creature.map(CreatureSimulation::status);
+    }
+
+    /** @return how many sense events the player has ever caused (for tests and development) */
+    public long sensesRaised() {
+        return senses.raised();
+    }
+
+    /** @return a snapshot of the cabin's hearth */
+    public HearthStatus hearth() {
+        return hearth.status();
+    }
+
+    /** @return the cabin stove fire's level, 0 when not lit; cheap, for drawing every frame */
+    public double hearthLevel() {
+        return hearth.level();
+    }
+
+    /** @return the in-game day, starting at 1 */
+    public int day() {
+        return clock.day();
+    }
+
+    /** @return the in-game time of day in minutes after midnight */
+    public double minuteOfDay() {
+        return clock.minuteOfDay();
+    }
+
+    /** @return the part of the day it is */
+    public DayPhase phase() {
+        return clock.phase();
+    }
+
+    /** @return the clock's tuning, for presentation that maps time of day to light */
+    public ClockParameters clockParameters() {
+        return clock.parameters();
+    }
+
     /** @return true if the cabin door is open */
     public boolean isCabinDoorOpen() {
         return cabinDoorOpen;
@@ -160,7 +287,7 @@ public final class WorldSimulation {
 
     /**
      * What the player could use right now. A world item the player is looking at comes first; otherwise the
-     * cabin door if the player is next to it.
+     * nearer of the cabin door and the stove, if the player is within reach of it.
      *
      * @param id a player's identity
      * @return the thing that player could use, if any
@@ -173,12 +300,74 @@ public final class WorldSimulation {
         Optional<WorldItem> aimed = aimedItem(player);
         if (aimed.isPresent()) {
             WorldItem item = aimed.get();
-            return Optional.of(new Interactable(ITEM_PREFIX + item.id(), InteractableKind.ITEM, item.x(), item.z(),
+            return Optional.of(new Interactable(InteractableRef.item(item.id()), item.x(), item.z(),
                     ItemActions.PICKUP_REACH));
         }
-        float dx = cabinDoor.x() - player.x();
-        float dz = cabinDoor.z() - player.z();
-        return dx * dx + dz * dz <= cabinDoor.reach() * cabinDoor.reach() ? Optional.of(cabinDoor) : Optional.empty();
+        float door = distanceSquared(player, cabinDoor);
+        float stove = distanceSquared(player, cabinHearth);
+        boolean doorInReach = door <= cabinDoor.reach() * cabinDoor.reach();
+        boolean stoveInReach = stove <= cabinHearth.reach() * cabinHearth.reach();
+        if (doorInReach && (!stoveInReach || door <= stove)) {
+            return Optional.of(cabinDoor);
+        }
+        if (stoveInReach) {
+            return Optional.of(cabinHearth);
+        }
+        return vehicle.filter(car -> driver != null || near(player, car.x(), car.z(), VEHICLE_REACH))
+                .map(car -> new Interactable(InteractableRef.VEHICLE, car.x(), car.z(), VEHICLE_REACH));
+    }
+
+    /** @return true if the player is within a distance of a point */
+    private static boolean near(PlayerState player, float x, float z, float reach) {
+        float dx = x - player.x();
+        float dz = z - player.z();
+        return dx * dx + dz * dz <= reach * reach;
+    }
+
+    /** @return true while a player is driving the car */
+    public boolean isDriving() {
+        return driver != null;
+    }
+
+    /** @return the car, if there is one in this world; it moves when driven */
+    public Optional<Vehicle> vehicle() {
+        return vehicle;
+    }
+
+    /**
+     * Uses the item in one of a player's inventory slots: eat, drink, or fill a container at open water.
+     *
+     * @param id the player
+     * @param slot the inventory slot
+     * @return what happened
+     */
+    public ActionResult useItem(PlayerId id, int slot) {
+        PlayerState player = players.get(id);
+        if (player == null) {
+            return ActionResult.failed("There is nothing to use.");
+        }
+        return survivalActions.use(player, inventories.get(id), survival.get(id), slot);
+    }
+
+    private boolean isDead(PlayerId id) {
+        Survival needs = survival.get(id);
+        return needs != null && needs.dead();
+    }
+
+    private static float distanceSquared(PlayerState player, Interactable target) {
+        float dx = target.x() - player.x();
+        float dz = target.z() - player.z();
+        return dx * dx + dz * dz;
+    }
+
+    /** @return world x and z of the middle of the cabin's stove */
+    private static float[] stoveCentre(WorldData world) {
+        for (CabinLayout.Furnishing furnishing : CabinLayout.furnishings(world.cabin().footprint())) {
+            if ("stove".equals(furnishing.id())) {
+                return CabinLayout.point(world.cabin(), furnishing.part().side(), furnishing.part().forward());
+            }
+        }
+        throw new IllegalStateException("The cabin layout has no stove");
     }
 
     /**
@@ -189,14 +378,23 @@ public final class WorldSimulation {
      */
     public ActionResult interact(InteractionRequest request) {
         Optional<Interactable> target = interactableFor(request.player());
-        if (target.isEmpty() || !target.get().id().equals(request.interactableId())) {
+        if (target.isEmpty() || !target.get().ref().equals(request.target())) {
             return ActionResult.failed("There is nothing to use there.");
         }
+        if (survival.get(request.player()).dead()) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
         if (target.get().kind() == InteractableKind.ITEM) {
-            EntityId item = new EntityId(Long.parseLong(target.get().id().substring(ITEM_PREFIX.length())));
-            return pickUpItem(request.player(), item);
+            return pickUpItem(request.player(), target.get().ref().entity());
+        }
+        if (target.get().kind() == InteractableKind.HEARTH) {
+            return survivalActions.tendHearth(inventories.get(request.player()), hearth);
+        }
+        if (target.get().kind() == InteractableKind.VEHICLE) {
+            return toggleDriving(request.player());
         }
         cabinDoorOpen = !cabinDoorOpen;
+        sense(SenseKind.DOOR, cabinDoor.x(), cabinDoor.z());
         collision.setDoorClosed(!cabinDoorOpen);
         return ActionResult.ok(cabinDoorOpen ? "You open the door." : "You close the door.");
     }
@@ -209,7 +407,15 @@ public final class WorldSimulation {
      * @return what happened
      */
     public ActionResult pickUpItem(PlayerId id, EntityId item) {
-        return itemActions.pickUp(players.get(id), inventories.get(id), item);
+        if (isDead(id)) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
+        Optional<WorldItem> found = worldItems.get(item);
+        ActionResult result = itemActions.pickUp(players.get(id), inventories.get(id), item);
+        if (result.success() && found.isPresent()) {
+            sense(SenseKind.PICK_UP, found.get().x(), found.get().z());
+        }
+        return result;
     }
 
     /**
@@ -221,7 +427,14 @@ public final class WorldSimulation {
      * @return what happened
      */
     public ActionResult dropItem(PlayerId id, int slot, int quantity) {
-        return itemActions.drop(players.get(id), inventories.get(id), slot, quantity);
+        if (isDead(id)) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
+        ActionResult result = itemActions.drop(players.get(id), inventories.get(id), slot, quantity);
+        if (result.success()) {
+            sense(SenseKind.DROP, players.get(id).x(), players.get(id).z());
+        }
+        return result;
     }
 
     /**
@@ -235,7 +448,14 @@ public final class WorldSimulation {
      * @return what happened
      */
     public ActionResult placeItem(PlayerId id, int slot, float x, float z, float yaw) {
-        return itemActions.place(players.get(id), inventories.get(id), slot, x, z, yaw);
+        if (isDead(id)) {
+            return ActionResult.failed(SurvivalActions.DEAD_MESSAGE);
+        }
+        ActionResult result = itemActions.place(players.get(id), inventories.get(id), slot, x, z, yaw);
+        if (result.success()) {
+            sense(SenseKind.PLACE, x, z);
+        }
+        return result;
     }
 
     /**
@@ -254,15 +474,100 @@ public final class WorldSimulation {
     }
 
     /**
-     * Advances the world by one frame.
+     * Advances the world by one rendered frame. Mouse look is applied at once; everything else runs in fixed
+     * steps of {@link FixedStep#STEP_SECONDS}, as many as the frame's time makes due (see {@link FixedStep}).
      *
-     * @param dt seconds since the last frame
+     * @param frameSeconds real seconds since the last frame
      * @param inputs what each player asked for; a player with no entry does nothing
      */
-    public void update(float dt, Map<PlayerId, PlayerInput> inputs) {
+    public void update(float frameSeconds, Map<PlayerId, PlayerInput> inputs) {
         for (PlayerState player : players.values()) {
-            movement.step(player, inputs.getOrDefault(player.id(), PlayerInput.NONE), dt);
+            if (!survival.get(player.id()).dead()) {
+                movement.look(player, inputs.getOrDefault(player.id(), PlayerInput.NONE));
+            }
         }
+        int steps = fixedStep.advance(frameSeconds);
+        for (int i = 0; i < steps; i++) {
+            step(inputs);
+        }
+    }
+
+    /**
+     * Forgets frame time owed but not yet simulated. Call when play resumes after a pause, so the first frame
+     * cannot run a burst of catch-up steps.
+     */
+    public void resetFrameTiming() {
+        fixedStep.reset();
+    }
+
+    /** @return how far between the last step and the next one the present moment is, from 0 to under 1 */
+    public float interpolation() {
+        return fixedStep.alpha();
+    }
+
+    /**
+     * One fixed step. The order is the update order of the whole simulation: players move, then the clock
+     * advances, then the hearth burns, then each player's needs change.
+     */
+    private void step(Map<PlayerId, PlayerInput> inputs) {
+        for (PlayerState player : players.values()) {
+            PlayerInput input = survival.get(player.id()).dead() ? PlayerInput.NONE
+                    : inputs.getOrDefault(player.id(), PlayerInput.NONE);
+            if (player.id().equals(driver) && survival.get(player.id()).dead()) {
+                driver = null;
+            }
+            if (player.id().equals(driver) && vehicle.isPresent()) {
+                Vehicle car = vehicle.get();
+                // A/D are the driving steering controls. Mouse turn remains free look while riding.
+                car.drive(input.forward(), input.strafe(), FixedStep.STEP_SECONDS);
+                movement.ride(player, car.x(), car.z());
+                continue;
+            }
+            float fromX = player.x();
+            float fromZ = player.z();
+            movement.move(player, input, FixedStep.STEP_SECONDS);
+            float dx = player.x() - fromX;
+            float dz = player.z() - fromZ;
+            if (strides.get(player.id()).advance((float) Math.sqrt(dx * dx + dz * dz))) {
+                sense(input.sprint() ? SenseKind.FOOTSTEP_SPRINT : SenseKind.FOOTSTEP_WALK, player.x(), player.z());
+            }
+        }
+        if (clock.advanceStep()) {
+            deadfall.scatter(clock.day(), Deadfall.DAILY_STACKS);
+        }
+        double minutes = clock.minutesPerStep();
+        hearth.update(minutes);
+        DayPhase phase = clock.phase();
+        Heat heat = hearth.heat();
+        for (PlayerState player : players.values()) {
+            boolean inside = world.cabin().footprint().contains(player.x(), player.z(), 0f);
+            boolean wading = world.water().depthAt(world.terrain(), player.x(), player.z())
+                    > PlayerMovement.WADE_DEPTH;
+            survival.get(player.id()).update(minutes, inside, wading, phase, heat);
+        }
+        if (creature.isPresent()) {
+            creature.get().step(FixedStep.STEP_SECONDS, players.values(), senses.events(), clock.phase(),
+                    clock.totalMinutes());
+        }
+        senses.clear();
+    }
+
+    /** Gets in the car, or gets out of it beside the car. */
+    private ActionResult toggleDriving(PlayerId id) {
+        if (driver == null) {
+            driver = id;
+            return ActionResult.ok("You get in.");
+        }
+        Vehicle car = vehicle.orElseThrow();
+        float exitX = car.x() - (float) Math.cos(car.yaw()) * EXIT_DISTANCE;
+        float exitZ = car.z() + (float) Math.sin(car.yaw()) * EXIT_DISTANCE;
+        movement.ride(players.get(id), exitX, exitZ);
+        driver = null;
+        return ActionResult.ok("You get out.");
+    }
+
+    private void sense(SenseKind kind, float x, float z) {
+        senses.add(new SenseEvent(kind, x, z, clock.totalMinutes()));
     }
 
     /** The world item the player is looking at, within reach: the one nearest to the line of sight. */

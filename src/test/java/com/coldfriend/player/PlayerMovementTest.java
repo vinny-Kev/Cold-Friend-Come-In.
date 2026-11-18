@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.coldfriend.assets.PropKind;
+import com.coldfriend.world.FixedStep;
 import com.coldfriend.world.SpawnPoints;
 import com.coldfriend.world.WorldSimulation;
 import com.coldfriend.world.gen.WorldGenParameters;
@@ -90,12 +91,17 @@ class PlayerMovementTest {
         float startX = player.x();
         float startZ = player.z();
 
-        // One half-second frame, sprinting straight ahead on open ground. Without the cap this would be 2.8 m.
+        // One half-second frame, sprinting straight ahead on open ground. Without the caps this would be 2.8 m.
+        // The frame runs at most MAX_STEPS_PER_UPDATE fixed steps, each no longer than MAX_STEP_SECONDS.
         simulation.update(0.5f, Map.of(PlayerId.LOCAL, new PlayerInput(1f, 0f, 0f, 0f, true)));
 
         float moved = (float) Math.hypot(player.x() - startX, player.z() - startZ);
+        float cap = 5.6f * FixedStep.MAX_STEPS_PER_UPDATE * Math.min(FixedStep.STEP_SECONDS,
+                PlayerMovement.MAX_STEP_SECONDS);
         assertTrue(moved > 0.1f, "player did not move");
-        assertTrue(moved <= 5.6f * PlayerMovement.MAX_STEP_SECONDS + TOLERANCE, "one long frame moved " + moved + " m");
+        assertTrue(moved <= cap + TOLERANCE, "one long frame moved " + moved + " m");
+        assertTrue(FixedStep.STEP_SECONDS <= PlayerMovement.MAX_STEP_SECONDS + 1e-6f,
+                "a fixed step must not be longer than the movement step cap");
     }
 
     @Test

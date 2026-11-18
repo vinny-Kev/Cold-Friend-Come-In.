@@ -46,7 +46,9 @@ Snow footsteps varying by surface and footwear, wind through trees and structure
 - Pause menu (Escape): Resume, Settings, Quit to Menu.
 - Seeds: random by default or set with `world.seed`; seed, generation version and parameter fingerprint are logged.
 
-**Not implemented:** NPCs, dialogue, trading, items, the shapeshifter, survival needs, hunting, audio, saving, multiplayer. The world data (`world.model`) already has stable ids and named locations they will use.
+**Milestone 04, Phase A (implemented, values proposed):** a game clock (one day is 20 real minutes; new games start at 07:00 on day 1) with lighting that follows it; warmth, food, water and health with warnings before anything harms health; a stove that burns firewood, dies to embers and goes out, and must be relit with matches and a branch; eating rations, drinking from and refilling a water container at the river, bandages; deadfall firewood to find in the forest (more each day); and starting again from the same world after dying. See `docs/development/SIMULATION_AND_SURVIVAL.md`.
+
+**Not implemented:** NPCs, dialogue, trading, the shapeshifter, chopping trees, hunting, the chimney, most audio, saving, multiplayer. The world data (`world.model`) already has stable ids and named locations they will use.
 
 ## Planned, not decided
 

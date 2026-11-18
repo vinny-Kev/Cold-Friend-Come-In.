@@ -6,9 +6,9 @@ import com.coldfriend.item.ItemCatalog;
 import com.coldfriend.player.PlayerId;
 import com.coldfriend.state.BackdropState;
 import com.coldfriend.state.InventoryState;
-import com.coldfriend.state.LightingProfile;
 import com.coldfriend.state.MainMenuState;
 import com.coldfriend.state.PauseState;
+import com.coldfriend.assets.IconCatalog;
 import com.coldfriend.state.PlayOptions;
 import com.coldfriend.state.ScreenNavigator;
 import com.coldfriend.state.SettingsState;
@@ -23,6 +23,7 @@ import com.jme3.asset.plugins.FileLocator;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.OptionalInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private static final String SPAWN_KEY = "dev.spawn";
     private static final String TIME_KEY = "dev.time";
     private static final String SCENARIO_KEY = "dev.scenario";
+    private static final String CREATURE_KEY = "dev.creature";
     private static final String FPS_KEY = "dev.showFps";
     private static final String AUTOSTART_KEY = "dev.autostart";
     private static final String SCREENSHOT_KEY = "dev.screenshot";
@@ -46,6 +48,7 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private static final float QUIT_AFTER_SCREENSHOT_SECONDS = 1.5f;
     private static final Path CATALOG_FILE = Path.of(ASSET_FOLDER, "models", "catalog.properties");
     private static final Path ITEMS_FILE = Path.of("config", "items.properties");
+    private static final Path ICONS_FILE = Path.of(ASSET_FOLDER, "ui", "icons.properties");
 
     private final GameConfig config;
     private final SettingsStore settingsStore;
@@ -56,8 +59,10 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     private SettingsState settingsState;
     private PauseState pauseState;
     private WorldPlayState worldState;
+    private WorldData currentWorld;
     private ModelCatalog catalog;
     private ItemCatalog items;
+    private IconCatalog icons;
     private InventoryState inventoryState;
     private ScreenshotAppState screenshot;
     private float developmentClock;
@@ -213,7 +218,35 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
     }
 
     private void enterNewWorld() {
-        WorldSeed seed = config.optionalString(SEED_KEY).map(WorldSeed::parse).orElseGet(WorldSeed::random);
+        enterWorld(config.optionalString(SEED_KEY).map(WorldSeed::parse).orElseGet(WorldSeed::random), null,
+                config.optionalString(SCENARIO_KEY).orElse(""));
+    }
+
+    @Override
+    public void restartGame() {
+        if (currentWorld == null) {
+            return;
+        }
+        // Detach after this frame's update, not during it. A development script is not run a second time.
+        enqueue(() -> {
+            if (inventoryState != null) {
+                stateManager.detach(inventoryState);
+                inventoryState = null;
+            }
+            if (worldState != null) {
+                stateManager.detach(worldState);
+                worldState = null;
+            }
+            enterWorld(new WorldSeed(currentWorld.seed()), currentWorld, "");
+        });
+    }
+
+    /**
+     * @param seed the world's seed, for the log
+     * @param existing a world to play again (it never changes, so a restart can reuse it), or null to generate one
+     * @param scenario a development script, or empty
+     */
+    private void enterWorld(WorldSeed seed, WorldData existing, String scenario) {
         try {
             if (catalog == null) {
                 catalog = new ModelCatalog(assetManager, CATALOG_FILE);
@@ -221,15 +254,20 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
             if (items == null) {
                 items = ItemCatalog.load(ITEMS_FILE);
             }
-            WorldData world = WorldGenerator.generate(seed, WorldGenParameters.DEFAULT);
+            if (icons == null) {
+                icons = new IconCatalog(assetManager, ICONS_FILE);
+            }
+            WorldData world = existing != null ? existing : WorldGenerator.generate(seed, WorldGenParameters.DEFAULT);
             mainMenuState.setEnabled(false);
             settingsState.setEnabled(false);
             pauseState.setEnabled(false);
             backdropState.setEnabled(false);
-            worldState = new WorldPlayState(world, catalog, items, this, new PlayOptions(
+            worldState = new WorldPlayState(world, catalog, icons, items, this, new PlayOptions(
                     config.optionalString(SPAWN_KEY).orElse("cabin"),
-                    LightingProfile.parse(config.optionalString(TIME_KEY).orElse("dusk")),
-                    config.optionalString(SCENARIO_KEY).orElse("")));
+                    startMinute(),
+                    scenario,
+                    config.optionalString(CREATURE_KEY).isPresent()));
+            currentWorld = world;
             stateManager.attach(worldState);
         } catch (IOException | RuntimeException e) {
             LOG.error("Could not start a new game with seed {}", seed, e);
@@ -237,8 +275,21 @@ public final class GameApp extends SimpleApplication implements ScreenNavigator 
         }
     }
 
+    /** @return the start time from {@code dev.time}, or the normal new-game time if it is blank or not understood */
+    private int startMinute() {
+        int normal = PlayOptions.NORMAL.startMinute();
+        return config.optionalString(TIME_KEY).map(value -> {
+            OptionalInt parsed = PlayOptions.parseStartTime(value);
+            if (parsed.isEmpty()) {
+                LOG.warn("Unknown dev.time '{}'; starting at the normal time", value);
+            }
+            return parsed.orElse(normal);
+        }).orElse(normal);
+    }
+
     @Override
     public void leaveWorld() {
+        currentWorld = null;
         if (inventoryState != null) {
             stateManager.detach(inventoryState);
             inventoryState = null;

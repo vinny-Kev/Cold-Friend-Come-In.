@@ -27,6 +27,7 @@ public final class GameplayInput {
     private static final String RIGHT = PREFIX + "right";
     private static final String SPRINT = PREFIX + "sprint";
     private static final String INTERACT = PREFIX + "interact";
+    private static final String USE = PREFIX + "use";
     private static final String PAUSE = PREFIX + "pause";
     private static final String INVENTORY = PREFIX + "inventory";
     private static final String DROP = PREFIX + "drop";
@@ -44,8 +45,8 @@ public final class GameplayInput {
     private static final int SLOT_KEYS = 9;
     private static final int[] DIGIT_KEYS = {KeyInput.KEY_1, KeyInput.KEY_2, KeyInput.KEY_3, KeyInput.KEY_4,
         KeyInput.KEY_5, KeyInput.KEY_6, KeyInput.KEY_7, KeyInput.KEY_8, KeyInput.KEY_9};
-    private static final String[] ACTION_NAMES = {FORWARD, BACK, LEFT, RIGHT, SPRINT, INTERACT, PAUSE, INVENTORY,
-        DROP, PLACE, ROTATE, CONFIRM, CANCEL};
+    private static final String[] ACTION_NAMES = {FORWARD, BACK, LEFT, RIGHT, SPRINT, INTERACT, USE, PAUSE,
+        INVENTORY, DROP, PLACE, ROTATE, CONFIRM, CANCEL};
     private static final String[] ANALOG_NAMES = {LOOK_LEFT, LOOK_RIGHT, LOOK_UP, LOOK_DOWN, WHEEL_UP, WHEEL_DOWN};
     /** Radians of turning per unit of mouse movement the engine reports. */
     private static final float LOOK_SENSITIVITY = 2f;
@@ -61,6 +62,7 @@ public final class GameplayInput {
     private boolean right;
     private boolean sprint;
     private boolean interactPressed;
+    private boolean usePressed;
     private boolean pausePressed;
     private boolean inventoryPressed;
     private boolean dropPressed;
@@ -90,6 +92,7 @@ public final class GameplayInput {
         map(RIGHT, new KeyTrigger(KeyInput.KEY_D), new KeyTrigger(KeyInput.KEY_RIGHT));
         map(SPRINT, new KeyTrigger(KeyInput.KEY_LSHIFT), new KeyTrigger(KeyInput.KEY_RSHIFT));
         map(INTERACT, new KeyTrigger(KeyInput.KEY_E));
+        map(USE, new KeyTrigger(KeyInput.KEY_F));
         map(PAUSE, new KeyTrigger(KeyInput.KEY_ESCAPE));
         map(INVENTORY, new KeyTrigger(KeyInput.KEY_I), new KeyTrigger(KeyInput.KEY_TAB));
         map(DROP, new KeyTrigger(KeyInput.KEY_Q));
@@ -144,6 +147,7 @@ public final class GameplayInput {
         right = false;
         sprint = false;
         interactPressed = false;
+        usePressed = false;
         pausePressed = false;
         inventoryPressed = false;
         dropPressed = false;
@@ -180,6 +184,11 @@ public final class GameplayInput {
     /** @return true once each time the interact key was pressed since the last call */
     public boolean consumeInteract() {
         return take(() -> interactPressed, () -> interactPressed = false);
+    }
+
+    /** @return true once each time the use key (use the selected item) was pressed since the last call */
+    public boolean consumeUse() {
+        return take(() -> usePressed, () -> usePressed = false);
     }
 
     /** @return true once each time the pause key was pressed since the last call */
@@ -252,6 +261,7 @@ public final class GameplayInput {
             case RIGHT -> right = pressed;
             case SPRINT -> sprint = pressed;
             case INTERACT -> interactPressed |= pressed;
+            case USE -> usePressed |= pressed;
             case PAUSE -> pausePressed |= pressed;
             case INVENTORY -> inventoryPressed |= pressed;
             case DROP -> dropPressed |= pressed;

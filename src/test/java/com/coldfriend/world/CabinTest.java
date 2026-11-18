@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.coldfriend.interaction.Interactable;
+import com.coldfriend.interaction.InteractableRef;
 import com.coldfriend.interaction.InteractionRequest;
 import com.coldfriend.player.PlayerId;
 import com.coldfriend.player.PlayerInput;
@@ -58,7 +59,7 @@ class CabinTest {
     private static void useDoor(WorldSimulation simulation) {
         Optional<Interactable> target = simulation.interactableFor(PlayerId.LOCAL);
         assertTrue(target.isPresent(), "no door within reach");
-        assertTrue(simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().id())).success());
+        assertTrue(simulation.interact(new InteractionRequest(PlayerId.LOCAL, target.get().ref())).success());
     }
 
     @Test
@@ -103,7 +104,7 @@ class CabinTest {
         simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, "village"));
 
         assertTrue(simulation.interactableFor(PlayerId.LOCAL).isEmpty());
-        assertFalse(simulation.interact(new InteractionRequest(PlayerId.LOCAL, WorldSimulation.CABIN_DOOR_ID)).success());
+        assertFalse(simulation.interact(new InteractionRequest(PlayerId.LOCAL, InteractableRef.CABIN_DOOR)).success());
         assertFalse(simulation.isCabinDoorOpen());
     }
 

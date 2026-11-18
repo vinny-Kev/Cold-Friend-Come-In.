@@ -1,6 +1,7 @@
 package com.coldfriend.world.gen;
 
 import com.coldfriend.world.model.HeightField;
+import com.coldfriend.world.query.SearchKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -70,7 +71,7 @@ final class FlowNetwork {
                     int index = j * side + i;
                     seen[index] = true;
                     filled[index] = ground[index];
-                    queue.add(Maths.sortKey(filled[index], index));
+                    queue.add(SearchKey.of(filled[index], index));
                 }
             }
         }
@@ -94,7 +95,7 @@ final class FlowNetwork {
                 float step = FILL_EPSILON * (FILL_JITTER_MIN + FILL_JITTER_RANGE * jitter(next));
                 filled[next] = Math.max(ground[next], filled[index] + step);
                 receiver[next] = index;
-                queue.add(Maths.sortKey(filled[next], next));
+                queue.add(SearchKey.of(filled[next], next));
             }
         }
         float[] accumulation = new float[total];

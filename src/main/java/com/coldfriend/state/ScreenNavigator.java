@@ -42,6 +42,9 @@ public interface ScreenNavigator {
     /** Leaves the world being played and returns to the main menu. */
     void leaveWorld();
 
+    /** Starts the same world (same seed) again from the beginning, after the player has died. */
+    void restartGame();
+
     /**
      * Applies the settings for this session, restarts the display if resolution, fullscreen or vsync changed,
      * and saves them to disk.

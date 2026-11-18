@@ -1,5 +1,6 @@
 package com.coldfriend.world.gen;
 
+import com.coldfriend.world.query.PathFinder;
 import com.coldfriend.world.model.HeightField;
 import com.coldfriend.world.model.LocationKind;
 import com.coldfriend.world.model.WaterMap;

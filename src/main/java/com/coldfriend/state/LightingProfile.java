@@ -2,11 +2,10 @@ package com.coldfriend.state;
 
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
-import java.util.Locale;
 
 /**
- * The look of the sky and lights at one time of day. The game plays at dusk; day and night exist so lighting
- * dependent things such as window glass can be checked under different conditions.
+ * The look of the sky and lights at one time of day. {@link SkyLighting} blends between these as the game clock
+ * runs; the profiles themselves are only colours and a light direction.
  */
 public enum LightingProfile {
     /** Bright overcast day. */
@@ -49,17 +48,5 @@ public enum LightingProfile {
     /** @return the direction the sun or moon shines in */
     public Vector3f direction() {
         return direction.clone();
-    }
-
-    /**
-     * @param name {@code day}, {@code dusk} or {@code night}, in any case; anything else gives dusk
-     * @return the matching profile
-     */
-    public static LightingProfile parse(String name) {
-        try {
-            return valueOf(name.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException | NullPointerException e) {
-            return DUSK;
-        }
     }
 }

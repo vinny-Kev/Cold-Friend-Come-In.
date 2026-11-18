@@ -1,5 +1,7 @@
 # Developer Decision Log
 
+> **No longer updated.** The canonical decision log is [`docs/DECISIONS.md`](../DECISIONS.md) (see D-034 there). The IDs D-012 to D-026 below mean different things from the entries with the same numbers in that file; new decisions start at D-027 in that file. This table is kept as a record.
+
 This file records decisions that affect how developers work. The full decision log, with rationale and alternatives for the early decisions, is `docs/DECISIONS.md` (D-001 to D-011). This file adds decisions made since, and marks the ones that still need owner confirmation.
 
 **Confirmed** means the owner decided it. **Recorded from code** means the decision is visible in the code and comments, but the owner has not stated it. Confirm those before relying on them.
@@ -40,4 +42,4 @@ This file records decisions that affect how developers work. The full decision l
 
 ## How to add a decision
 
-Add a row with an ID one higher than the last. Say whether it was **Confirmed** by the owner or **Recorded from code**. Include the rationale and what you considered. If a decision changes an earlier one, mark the earlier row as superseded rather than deleting it.
+Do not add rows here. Add an entry to `docs/DECISIONS.md` instead (see D-034 there). The text below is the old rule. Add a row with an ID one higher than the last. Say whether it was **Confirmed** by the owner or **Recorded from code**. Include the rationale and what you considered. If a decision changes an earlier one, mark the earlier row as superseded rather than deleting it.

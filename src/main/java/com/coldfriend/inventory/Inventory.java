@@ -16,6 +16,8 @@ public final class Inventory {
 
     /** Number of slots a player has. */
     public static final int PLAYER_SLOTS = 24;
+    /** How many of the first slots the hotbar on the play screen shows. */
+    public static final int HOTBAR_SLOTS = 4;
 
     /** How {@link #move} ended. */
     public enum MoveResult {
