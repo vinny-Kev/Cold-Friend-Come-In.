@@ -69,6 +69,8 @@ public final class WorldPlayState extends BaseAppState {
     private static final float NEAR = 0.1f;
     private static final float FAR = 600f;
     private static final float EYE_HEIGHT = 1.65f;
+    /** Eye height while seated in the car, below the roof line. */
+    private static final float DRIVER_EYE_HEIGHT = 0.95f;
     private static final float FOG_DENSITY = 1.0f;
     private static final float FOG_DISTANCE = 140f;
     /** Distance walked between two footsteps, in metres. Tuning value; sprinting uses the faster sound. */
@@ -365,8 +367,15 @@ public final class WorldPlayState extends BaseAppState {
             scenarioLook = 0f;
         }
         simulation.update(tpf, Map.of(PlayerId.LOCAL, input));
-        simulation.vehicle().ifPresent(car -> carView.place(car.x(), car.z(), car.yaw(),
-                world.terrain().heightAt(car.x(), car.z())));
+        float carAlpha = simulation.interpolation();
+        simulation.vehicle().ifPresent(car -> {
+            float carX = interpolate(car.previousX(), car.x(), carAlpha);
+            float carZ = interpolate(car.previousZ(), car.z(), carAlpha);
+            float yawDelta = (float) Math.atan2(Math.sin(car.yaw() - car.previousYaw()),
+                    Math.cos(car.yaw() - car.previousYaw()));
+            float carYaw = car.previousYaw() + yawDelta * carAlpha;
+            carView.place(carX, carZ, carYaw, world.terrain().heightAt(carX, carZ));
+        });
         deadSeconds = simulation.survival(PlayerId.LOCAL).dead() ? deadSeconds + tpf : 0f;
         playFootsteps(input);
         scene.setCabinDoorOpen(simulation.isCabinDoorOpen());
@@ -669,12 +678,17 @@ public final class WorldPlayState extends BaseAppState {
         float x = player.previousX() + (player.x() - player.previousX()) * a;
         float y = player.previousY() + (player.y() - player.previousY()) * a;
         float z = player.previousZ() + (player.z() - player.previousZ()) * a;
-        camera.setLocation(camera.getLocation().set(x, y + EYE_HEIGHT, z));
+        float eyeHeight = simulation.isDriving() ? DRIVER_EYE_HEIGHT : EYE_HEIGHT;
+        camera.setLocation(camera.getLocation().set(x, y + eyeHeight, z));
         float cosPitch = (float) Math.cos(player.pitch());
         camera.lookAtDirection(new Vector3f(
                 (float) Math.sin(player.yaw()) * cosPitch,
                 (float) Math.sin(player.pitch()),
                 (float) Math.cos(player.yaw()) * cosPitch), Vector3f.UNIT_Y);
         scene.update(player.x(), player.z());
+    }
+
+    private static float interpolate(float from, float to, float alpha) {
+        return from + (to - from) * alpha;
     }
 }

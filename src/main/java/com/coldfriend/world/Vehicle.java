@@ -27,6 +27,9 @@ public final class Vehicle {
     private float x;
     private float z;
     private float yaw;
+    private float previousX;
+    private float previousZ;
+    private float previousYaw;
     private float speed;
 
     /**
@@ -42,6 +45,9 @@ public final class Vehicle {
         this.x = start.x();
         this.z = start.z();
         this.yaw = start.yaw();
+        this.previousX = x;
+        this.previousZ = z;
+        this.previousYaw = yaw;
         addBody(x, z, yaw);
     }
 
@@ -65,6 +71,21 @@ public final class Vehicle {
         return speed;
     }
 
+    /** @return car x at the start of the last fixed step, for smooth drawing */
+    public float previousX() {
+        return previousX;
+    }
+
+    /** @return car z at the start of the last fixed step, for smooth drawing */
+    public float previousZ() {
+        return previousZ;
+    }
+
+    /** @return car heading at the start of the last fixed step, for smooth drawing */
+    public float previousYaw() {
+        return previousYaw;
+    }
+
     /**
      * Drives for one step.
      *
@@ -73,6 +94,9 @@ public final class Vehicle {
      * @param dt step length in seconds
      */
     public void drive(float throttle, float steer, float dt) {
+        previousX = x;
+        previousZ = z;
+        previousYaw = yaw;
         float goal = throttle >= 0f ? throttle * MAX_FORWARD : throttle * MAX_REVERSE;
         speed = approach(speed, goal, ACCEL * dt);
         if (speed == 0f) {
