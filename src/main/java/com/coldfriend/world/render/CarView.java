@@ -37,22 +37,21 @@ final class CarView {
         Material tyre = RenderParts.lit(assets, TYRE);
         float hw = ParkedCar.HALF_WIDTH;
         float hl = ParkedCar.HALF_LENGTH;
-        // The exterior model when it loads; otherwise a boxed body and wheels.
+        // The model has its own interior. Without it, a boxed body, wheels and seats.
         if (RenderParts.fitModel(assets, MODEL, root, hw, ROOF_TOP, hl, 0f, 0f, 0f) == null) {
             RenderParts.box(root, "body", hw, (LOWER_TOP - 0.3f) / 2f, hl, 0f, 0.3f + (LOWER_TOP - 0.3f) / 2f, 0f, body);
             RenderParts.box(root, "cabin", hw * 0.85f, (ROOF_TOP - LOWER_TOP) / 2f, hl * 0.55f, 0f,
                     LOWER_TOP + (ROOF_TOP - LOWER_TOP) / 2f, -hl * 0.1f, roof);
+            RenderParts.box(root, "interior", hw * 0.75f, (ROOF_TOP - LOWER_TOP) / 2f - 0.05f, hl * 0.45f, 0f,
+                    LOWER_TOP + (ROOF_TOP - LOWER_TOP) / 2f, -hl * 0.1f, interior);
+            RenderParts.box(root, "seat-left", 0.25f, 0.25f, 0.3f, -0.4f, LOWER_TOP + 0.1f, -hl * 0.1f, seat);
+            RenderParts.box(root, "seat-right", 0.25f, 0.25f, 0.3f, 0.4f, LOWER_TOP + 0.1f, -hl * 0.1f, seat);
             for (float side : new float[] {-HALF_TRACK, HALF_TRACK}) {
                 for (float forward : new float[] {-hl * 0.6f, hl * 0.6f}) {
                     RenderParts.box(root, "tyre", 0.12f, TYRE_RADIUS, TYRE_RADIUS, side, TYRE_RADIUS, forward, tyre);
                 }
             }
         }
-        // The interior is always boxed in code: the exterior model has none.
-        RenderParts.box(root, "interior", hw * 0.75f, (ROOF_TOP - LOWER_TOP) / 2f - 0.05f, hl * 0.45f, 0f,
-                LOWER_TOP + (ROOF_TOP - LOWER_TOP) / 2f, -hl * 0.1f, interior);
-        RenderParts.box(root, "seat-left", 0.25f, 0.25f, 0.3f, -0.4f, LOWER_TOP + 0.1f, -hl * 0.1f, seat);
-        RenderParts.box(root, "seat-right", 0.25f, 0.25f, 0.3f, 0.4f, LOWER_TOP + 0.1f, -hl * 0.1f, seat);
     }
 
     Node root() {
