@@ -12,7 +12,7 @@ import com.jme3.scene.Node;
  * Draws the parked car from boxes: an old saloon with a dark interior showing through the windows. A placeholder for a
  * modelled car, which needs an approved asset; the shape and position are the same either way.
  */
-final class CarView {
+public final class CarView {
 
     private static final ColorRGBA BODY = new ColorRGBA(0.36f, 0.42f, 0.30f, 1f);
     private static final ColorRGBA ROOF = new ColorRGBA(0.22f, 0.25f, 0.20f, 1f);
@@ -27,7 +27,7 @@ final class CarView {
 
     private final Node root = new Node("parked-car");
 
-    CarView(ParkedCar car, float groundY, AssetManager assets) {
+    public CarView(ParkedCar car, float groundY, AssetManager assets) {
         root.setLocalTranslation(car.x(), groundY, car.z());
         root.setLocalRotation(new Quaternion().fromAngleAxis(car.yaw(), Vector3f.UNIT_Y));
         Material body = RenderParts.lit(assets, BODY);
@@ -54,7 +54,20 @@ final class CarView {
         }
     }
 
-    Node root() {
+    public Node root() {
         return root;
+    }
+
+    /**
+     * Moves the car's drawing to where the simulation has it.
+     *
+     * @param x world x, in metres
+     * @param z world z, in metres
+     * @param yaw heading, in radians
+     * @param groundY the ground under it, in metres
+     */
+    public void place(float x, float z, float yaw, float groundY) {
+        root.setLocalTranslation(x, groundY, z);
+        root.setLocalRotation(new Quaternion().fromAngleAxis(yaw, Vector3f.UNIT_Y));
     }
 }

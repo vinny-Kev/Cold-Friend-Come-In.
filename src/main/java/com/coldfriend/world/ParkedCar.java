@@ -30,8 +30,16 @@ public record ParkedCar(float x, float z, float yaw) {
 
     /** @return the centres of the round obstacles that make up the car, as x, z pairs flattened to one array */
     public float[] obstacleCentres() {
-        return new float[] {x - (float) Math.sin(yaw) * (HALF_LENGTH - RADIUS), z - (float) Math.cos(yaw) * (HALF_LENGTH - RADIUS),
-            x, z, x + (float) Math.sin(yaw) * (HALF_LENGTH - RADIUS), z + (float) Math.cos(yaw) * (HALF_LENGTH - RADIUS)};
+        return centres(x, z, yaw);
+    }
+
+    /**
+     * @return the centres of the round obstacles of a car at a place and heading, as x, z pairs flattened to one array
+     */
+    public static float[] centres(float x, float z, float yaw) {
+        float dx = (float) Math.sin(yaw) * (HALF_LENGTH - RADIUS);
+        float dz = (float) Math.cos(yaw) * (HALF_LENGTH - RADIUS);
+        return new float[] {x - dx, z - dz, x, z, x + dx, z + dz};
     }
 
     /**

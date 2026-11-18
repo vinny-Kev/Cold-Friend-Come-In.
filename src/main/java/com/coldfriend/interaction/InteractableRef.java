@@ -18,6 +18,8 @@ public record InteractableRef(InteractableKind kind, long number) {
 
     /** The cabin's front door. */
     public static final InteractableRef CABIN_DOOR = new InteractableRef(InteractableKind.DOOR, 1L);
+    /** The car beside the cabin. */
+    public static final InteractableRef VEHICLE = new InteractableRef(InteractableKind.VEHICLE, 1L);
     /** The cabin's stove. */
     public static final InteractableRef CABIN_HEARTH = new InteractableRef(InteractableKind.HEARTH, 1L);
 

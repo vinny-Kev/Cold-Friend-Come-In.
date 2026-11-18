@@ -61,6 +61,10 @@ public final class WorldSimulation {
     private static final float DOOR_REACH = 2.2f;
     /** Ids for the car's round obstacles; far above the item counter, like the creature's id. */
     private static final long CAR_ID = 2_000_000_000L;
+    /** How close a player must be to the car to get in, in metres. */
+    private static final float VEHICLE_REACH = 2.5f;
+    /** How far from the car's centre a player stands when they get out, in metres. */
+    private static final float EXIT_DISTANCE = 2.4f;
     /** Distance walked between two footsteps the creature can hear, in metres. */
     private static final float FOOTSTEP_STRIDE = 2.5f;
     /** How close to the stove's centre a player must be to tend it, in metres. */
@@ -85,6 +89,9 @@ public final class WorldSimulation {
     private final SenseLog senses = new SenseLog();
     private final Optional<CreatureSimulation> creature;
     private final Optional<ParkedCar> car;
+    private final Optional<Vehicle> vehicle;
+    /** The player driving the car, or null when nobody is in it. */
+    private PlayerId driver;
     private final FixedStep fixedStep = new FixedStep();
     private final WorldClock clock;
     private final Hearth hearth = new Hearth(HearthParameters.DEFAULT);
@@ -130,12 +137,7 @@ public final class WorldSimulation {
         StartingItems.populate(world, catalog, worldItems, validator);
         this.deadfall = new Deadfall(world, catalog, collision, worldItems, validator);
         this.car = ParkedCar.find(world, collision);
-        car.ifPresent(parked -> {
-            float[] centres = parked.obstacleCentres();
-            for (int i = 0; i < centres.length; i += 2) {
-                collision.addObstacle(new EntityId(CAR_ID + i / 2), centres[i], centres[i + 1], ParkedCar.RADIUS);
-            }
-        });
+        this.vehicle = this.car.map(parked -> new Vehicle(world, collision, parked, CAR_ID));
         this.creature = CreatureSimulation.spawn(world, collision, CreatureSimulation.ID,
                 new RandomStreams(world.seed(), world.generationVersion(), 0));
         deadfall.scatter(clock.day(), Deadfall.INITIAL_STACKS);
@@ -308,7 +310,28 @@ public final class WorldSimulation {
         if (doorInReach && (!stoveInReach || door <= stove)) {
             return Optional.of(cabinDoor);
         }
-        return stoveInReach ? Optional.of(cabinHearth) : Optional.empty();
+        if (stoveInReach) {
+            return Optional.of(cabinHearth);
+        }
+        return vehicle.filter(car -> driver != null || near(player, car.x(), car.z(), VEHICLE_REACH))
+                .map(car -> new Interactable(InteractableRef.VEHICLE, car.x(), car.z(), VEHICLE_REACH));
+    }
+
+    /** @return true if the player is within a distance of a point */
+    private static boolean near(PlayerState player, float x, float z, float reach) {
+        float dx = x - player.x();
+        float dz = z - player.z();
+        return dx * dx + dz * dz <= reach * reach;
+    }
+
+    /** @return true while a player is driving the car */
+    public boolean isDriving() {
+        return driver != null;
+    }
+
+    /** @return the car, if there is one in this world; it moves when driven */
+    public Optional<Vehicle> vehicle() {
+        return vehicle;
     }
 
     /**
@@ -366,6 +389,9 @@ public final class WorldSimulation {
         }
         if (target.get().kind() == InteractableKind.HEARTH) {
             return survivalActions.tendHearth(inventories.get(request.player()), hearth);
+        }
+        if (target.get().kind() == InteractableKind.VEHICLE) {
+            return toggleDriving(request.player());
         }
         cabinDoorOpen = !cabinDoorOpen;
         sense(SenseKind.DOOR, cabinDoor.x(), cabinDoor.z());
@@ -487,6 +513,16 @@ public final class WorldSimulation {
         for (PlayerState player : players.values()) {
             PlayerInput input = survival.get(player.id()).dead() ? PlayerInput.NONE
                     : inputs.getOrDefault(player.id(), PlayerInput.NONE);
+            if (player.id().equals(driver) && survival.get(player.id()).dead()) {
+                driver = null;
+            }
+            if (player.id().equals(driver) && vehicle.isPresent()) {
+                Vehicle car = vehicle.get();
+                // A/D are the driving steering controls. Mouse turn remains free look while riding.
+                car.drive(input.forward(), input.strafe(), FixedStep.STEP_SECONDS);
+                movement.ride(player, car.x(), car.z());
+                continue;
+            }
             float fromX = player.x();
             float fromZ = player.z();
             movement.move(player, input, FixedStep.STEP_SECONDS);
@@ -514,6 +550,20 @@ public final class WorldSimulation {
                     clock.totalMinutes());
         }
         senses.clear();
+    }
+
+    /** Gets in the car, or gets out of it beside the car. */
+    private ActionResult toggleDriving(PlayerId id) {
+        if (driver == null) {
+            driver = id;
+            return ActionResult.ok("You get in.");
+        }
+        Vehicle car = vehicle.orElseThrow();
+        float exitX = car.x() - (float) Math.cos(car.yaw()) * EXIT_DISTANCE;
+        float exitZ = car.z() + (float) Math.sin(car.yaw()) * EXIT_DISTANCE;
+        movement.ride(players.get(id), exitX, exitZ);
+        driver = null;
+        return ActionResult.ok("You get out.");
     }
 
     private void sense(SenseKind kind, float x, float z) {

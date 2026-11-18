@@ -103,9 +103,12 @@ public final class WorldScene {
      * @param car where the car is
      * @param groundY the ground under the car, in metres
      * @param assets the engine asset manager
+     * @return the car's drawing, to move with the simulation
      */
-    public void addCar(ParkedCar car, float groundY, AssetManager assets) {
-        root.attachChild(new CarView(car, groundY, assets).root());
+    public CarView addCar(ParkedCar car, float groundY, AssetManager assets) {
+        CarView view = new CarView(car, groundY, assets);
+        root.attachChild(view.root());
+        return view;
     }
 
     /** @param level the cabin stove fire's level from the simulation; 0 when it is not lit */

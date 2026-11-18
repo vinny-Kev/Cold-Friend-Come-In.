@@ -33,6 +33,7 @@ import com.coldfriend.world.items.PlacementCheck;
 import com.coldfriend.world.items.PlacementValidator;
 import com.coldfriend.world.items.WorldItem;
 import com.coldfriend.world.model.WorldData;
+import com.coldfriend.world.render.CarView;
 import com.coldfriend.world.render.PlacementPreview;
 import com.coldfriend.world.render.WorldItemsView;
 import com.coldfriend.world.render.WorldScene;
@@ -109,6 +110,7 @@ public final class WorldPlayState extends BaseAppState {
     private SurvivalHud survivalHud;
     private final IconCatalog icons;
     private HotbarView hotbar;
+    private CarView carView;
     private float hotbarWidth = -1f;
     private float hotbarHeight = -1f;
     private CreatureDebugView creatureView;
@@ -222,7 +224,7 @@ public final class WorldPlayState extends BaseAppState {
         simulation = new WorldSimulation(world, itemCatalog, options.startMinute());
         player = simulation.addPlayer(PlayerId.LOCAL, SpawnPoints.at(world, options.spawn()));
         scene = new WorldScene(world, catalog, app.getAssetManager());
-        simulation.car().ifPresent(car -> scene.addCar(car, world.terrain().heightAt(car.x(), car.z()),
+        simulation.car().ifPresent(car -> carView = scene.addCar(car, world.terrain().heightAt(car.x(), car.z()),
                 app.getAssetManager()));
         sky = new SkyLighting(simulation.clockParameters());
         sky.addTo(scene.root());
@@ -363,6 +365,8 @@ public final class WorldPlayState extends BaseAppState {
             scenarioLook = 0f;
         }
         simulation.update(tpf, Map.of(PlayerId.LOCAL, input));
+        simulation.vehicle().ifPresent(car -> carView.place(car.x(), car.z(), car.yaw(),
+                world.terrain().heightAt(car.x(), car.z())));
         deadSeconds = simulation.survival(PlayerId.LOCAL).dead() ? deadSeconds + tpf : 0f;
         playFootsteps(input);
         scene.setCabinDoorOpen(simulation.isCabinDoorOpen());
@@ -548,6 +552,8 @@ public final class WorldPlayState extends BaseAppState {
             prompt.setText("[E] Pick up " + describeItem(target.get().ref()));
         } else if (target.get().kind() == InteractableKind.HEARTH) {
             prompt.setText(stovePrompt());
+        } else if (target.get().kind() == InteractableKind.VEHICLE) {
+            prompt.setText(simulation.isDriving() ? "[W/S] Drive   [A/D] Steer   [E] Get out" : "[E] Get in the car");
         } else {
             prompt.setText(simulation.isCabinDoorOpen() ? "[E] Close the door" : "[E] Open the door");
         }
@@ -614,7 +620,8 @@ public final class WorldPlayState extends BaseAppState {
         lastX = player.x();
         lastZ = player.z();
         boolean wading = world.water().depthAt(world.terrain(), player.x(), player.z()) > PlayerMovement.WADE_DEPTH;
-        if (steps.advance((float) Math.sqrt(dx * dx + dz * dz)) && footsteps != null && !wading) {
+        if (steps.advance((float) Math.sqrt(dx * dx + dz * dz)) && footsteps != null && !wading
+                && !simulation.isDriving()) {
             footsteps.play(input.sprint());
         }
     }

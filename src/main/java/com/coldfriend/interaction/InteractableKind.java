@@ -7,5 +7,7 @@ public enum InteractableKind {
     /** An item lying or placed in the world, which can be picked up. */
     ITEM,
     /** A stove or fireplace that burns fuel. */
-    HEARTH
+    HEARTH,
+    /** The car: get in, or get out when driving. */
+    VEHICLE
 }

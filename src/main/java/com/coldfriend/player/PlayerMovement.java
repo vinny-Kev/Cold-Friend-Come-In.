@@ -48,6 +48,18 @@ public final class PlayerMovement {
     }
 
     /**
+     * Puts a player where something else carries them (a car they are riding), on the ground at that spot.
+     *
+     * @param player the player, changed in place
+     * @param x world x, in metres
+     * @param z world z, in metres
+     */
+    public void ride(PlayerState player, float x, float z) {
+        player.beginStep();
+        player.setPosition(x, world.terrain().heightAt(x, z), z);
+    }
+
+    /**
      * Moves one player for one simulation step. Remembers where the step started so drawing can blend between
      * steps.
      *
